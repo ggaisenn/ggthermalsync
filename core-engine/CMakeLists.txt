@@ -13,4 +13,4 @@ add_executable(BATTERYSIM
     src/BatteryPack.cpp
 )
 
-target_include_directories(battery_sim PUBLIC include)
+target_include_directories(BATTERYSIM PUBLIC include)
