@@ -1,4 +1,6 @@
-#include <bits/stdc++.h>
+#include <iomanip>
+#include <iostream>
+#include <vector>
 #include "BatteryCell.h"
 using namespace std;
 
@@ -24,7 +26,7 @@ int main() {
     double coolingPower = 0.2;  // Active cooling factor
 
     // Simulation loop for 1,000 steps
-    for (int step = 0; step <= TOTAL_STEPS; ++step) {
+    for (int step = 0; step < TOTAL_STEPS; ++step) {
         
         // Print telemetry every 100 steps
         if (step % 100 == 0) {

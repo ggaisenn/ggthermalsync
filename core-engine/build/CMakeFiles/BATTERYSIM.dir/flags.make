@@ -6,7 +6,7 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/Users/gauravgaisenn/Documents/Gaurav/BTECH/PC/SIDEPROJECTSLIST/ggthermalsync/core-engine/include
 
-CXX_FLAGSarm64 = -std=c++17 -arch arm64
+CXX_FLAGSarm64 = -g -std=c++17 -arch arm64
 
-CXX_FLAGS = -std=c++17 -arch arm64
+CXX_FLAGS = -g -std=c++17 -arch arm64
 
