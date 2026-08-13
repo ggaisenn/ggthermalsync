@@ -3,7 +3,7 @@
 
 class BatteryCell {
 public:
-    BatteryCell(int id, double initialTemp);  //Define the cell constructor
+    BatteryCell(int id, double initialTemperature);  //Define the cell constructor
     int id() const;
     double temperature() const;               
     void update(double dt, double heatGen, double coolingPower);
