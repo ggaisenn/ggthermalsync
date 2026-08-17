@@ -1,3 +1,0 @@
-/Users/gauravgaisenn/Documents/Gaurav/BTECH/PC/SIDEPROJECTSLIST/ggthermalsync/core-engine/build/CMakeFiles/BATTERYSIM.dir
-/Users/gauravgaisenn/Documents/Gaurav/BTECH/PC/SIDEPROJECTSLIST/ggthermalsync/core-engine/build/CMakeFiles/edit_cache.dir
-/Users/gauravgaisenn/Documents/Gaurav/BTECH/PC/SIDEPROJECTSLIST/ggthermalsync/core-engine/build/CMakeFiles/rebuild_cache.dir
