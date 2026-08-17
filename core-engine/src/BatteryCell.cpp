@@ -1,5 +1,7 @@
 #include "BatteryCell.h"
 #include <iostream>
+#include <thread>
+#include <chrono>
 using namespace std;
 
 constexpr double AMBIENT_TEMPERATURE = 25.0;         // 25°C ambient temperature

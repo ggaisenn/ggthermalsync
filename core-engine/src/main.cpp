@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <vector>
+#include <thread>
 #include "BatteryCell.h"
 using namespace std;
 
@@ -18,8 +19,10 @@ int main() {
         BatteryPack.emplace_back(i, initialTemp);
     }
 
-    std::cout << "Starting EV Battery Thermal Simulation...\n";
-    std::cout << "--------------------------------------------------------\n";
+    cout << "Starting EV Battery Thermal Simulation...\n";
+    cout << "--------------------------------------------------------\n";
+
+    this_thread::sleep_for(std::chrono::milliseconds(2000));  
 
     double simTime = 0.0;
     double heatGen = 5.0;       // Internal heat generation
@@ -58,8 +61,10 @@ int main() {
         simTime += DT;
     }
 
-    std::cout << "--------------------------------------------------------\n";
-    std::cout << "Simulation complete.\n";
+    this_thread::sleep_for(std::chrono::milliseconds(2000));  
+
+    cout << "--------------------------------------------------------\n";
+    cout << "Simulation complete.\n";
 
     return 0;
 }
