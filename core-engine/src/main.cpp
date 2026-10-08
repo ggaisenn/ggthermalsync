@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <thread>
+#include <chrono>
 #include "BatteryCell.h"
 using namespace std;
 

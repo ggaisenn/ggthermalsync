@@ -12,6 +12,7 @@ add_executable(BATTERYSIM
     src/main.cpp
     src/BatteryCell.cpp
     src/BatteryPack.cpp
+    src/PidController.cpp
 )
 
 target_include_directories(BATTERYSIM PUBLIC include)
