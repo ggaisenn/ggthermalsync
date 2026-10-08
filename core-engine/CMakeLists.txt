@@ -14,6 +14,7 @@ add_executable(BATTERYSIM
     src/BatteryPack.cpp
     src/PidController.cpp
     src/JsonEncoder.cpp
+    src/TcpClient.cpp
 )
 
 target_include_directories(BATTERYSIM PUBLIC include)
