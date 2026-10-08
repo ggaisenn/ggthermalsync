@@ -13,6 +13,7 @@ add_executable(BATTERYSIM
     src/BatteryCell.cpp
     src/BatteryPack.cpp
     src/PidController.cpp
+    src/JsonEncoder.cpp
 )
 
 target_include_directories(BATTERYSIM PUBLIC include)
