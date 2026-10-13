@@ -14,7 +14,6 @@ Lithium-ion cells operate in a danger zone: too hot, and they enter thermal runa
 - A **live ingestion pipeline** that streams every simulation frame as JSON over the network
 - A **real-time dashboard** that renders the pack as a 3D heatmap with rolling temperature history
 
-The physics are modeled, but the pipeline is production-shaped: nothing is stubbed, nothing is fake — every degree of heat and every byte of telemetry actually flows through the system end to end.
 
 ## Architecture
 
@@ -86,6 +85,15 @@ The ingestion layer. Listens on TCP `:9001`, reads newline-delimited JSON frames
 | Ring buffer | Keep the last N full-rate frames for history queries |
 | WebSocket hub | Broadcast to all dashboard clients, downsampled to 10–15 Hz to protect browser rendering |
 | REST API | `/api/history` (full-rate backfill), `/api/health` (liveness) |
+
+
+`GET /api/resource` returns chronological data. Use parameters to filter your results, for example `/api/resource?param1=value1&param2=value2`. 
+
+In zsh, quote URLs that contain query parameters: 
+
+```bash
+curl -i "http://localhost:8080/api/resource?param1=value1"
+```
 
 **Design decisions:**
 

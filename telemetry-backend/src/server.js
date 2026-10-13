@@ -41,13 +41,38 @@ app.get('/api/health', (_request, response) => {
 app.get('/api/history', (request, response) => {
   const requestedLimit = request.query.limit === undefined
     ? history.size
-    : Number(request.query.limit);
-  if (!Number.isInteger(requestedLimit) || requestedLimit < 0) {
+    : parseQueryNumber(request.query.limit);
+  if (requestedLimit === null || !Number.isSafeInteger(requestedLimit)) {
     response.status(400).json({ error: 'limit must be a non-negative integer' });
     return;
   }
-  response.json({ frames: history.snapshot(requestedLimit) });
+
+  const timeframeSeconds = request.query.timeframe === undefined
+    ? null
+    : parseQueryNumber(request.query.timeframe);
+  if (timeframeSeconds !== null && timeframeSeconds < 0) {
+    response.status(400).json({ error: 'timeframe must be a non-negative number of seconds' });
+    return;
+  }
+  if (request.query.timeframe !== undefined && timeframeSeconds === null) {
+    response.status(400).json({ error: 'timeframe must be a non-negative number of seconds' });
+    return;
+  }
+
+  let frames = history.snapshot();
+  if (timeframeSeconds !== null && frames.length > 0) {
+    const latestTimestamp = frames[frames.length - 1].timestamp;
+    const cutoff = latestTimestamp - timeframeSeconds;
+    frames = frames.filter((frame) => frame.timestamp >= cutoff);
+  }
+  response.json({ frames: frames.slice(Math.max(0, frames.length - requestedLimit)) });
 });
+
+function parseQueryNumber(value) {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 const tcpServer = createTcpIngestServer({
   onFrame(frame) {
