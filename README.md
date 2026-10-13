@@ -105,6 +105,20 @@ cmake --build core-engine/build --target BATTERYSIM
 ./core-engine/build/BATTERYSIM
 ```
 
+Start the telemetry backend in one terminal:
+
+```bash
+cd telemetry-backend
+npm install
+npm start
+```
+
+Connect a WebSocket client from another terminal:
+
+```bash
+npx wscat -c ws://localhost:8080
+```
+
 ## Telemetry Payload
 
 Every simulation frame is emitted as a single line of JSON:
@@ -146,4 +160,3 @@ ggthermalsync/
 | M2 — Telemetry pipeline | TCP stream at 30–60 Hz, reconnects with backoff, ingestion backend, ring buffer, WebSocket hub | In progress |
 | M3 — Dashboard | 3D heatmap, live HUD, rolling charts, backfill on connect | Planned |
 | M4 — Hardening | Jitter tuning, multi-client load, overheat alerting, end-to-end demo | Planned |
- 
