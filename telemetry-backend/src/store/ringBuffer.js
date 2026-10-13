@@ -16,9 +16,9 @@ class RingBuffer {
     this.size = Math.min(this.size + 1, this.capacity);
   }
 
-  toArray(limit = this.size) {
+  snapshot(limit = this.size) {
     if (!Number.isInteger(limit) || limit < 0) {
-      throw new TypeError('RingBuffer limit must be a non-negative integer');
+      throw new TypeError('RingBuffer snapshot limit must be a non-negative integer');
     }
 
     const count = Math.min(limit, this.size);
@@ -26,6 +26,10 @@ class RingBuffer {
     return Array.from({ length: count }, (_, offset) => (
       this.frames[(firstIndex + offset) % this.capacity]
     ));
+  }
+
+  toArray(limit = this.size) {
+    return this.snapshot(limit);
   }
 }
 

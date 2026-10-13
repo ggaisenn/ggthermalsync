@@ -27,7 +27,7 @@ app.get('/api/history', (request, response) => {
     response.status(400).json({ error: 'limit must be a non-negative integer' });
     return;
   }
-  response.json({ frames: history.toArray(requestedLimit) });
+  response.json({ frames: history.snapshot(requestedLimit) });
 });
 
 const tcpServer = createTcpIngestServer({
