@@ -41,6 +41,9 @@ const tcpServer = createTcpIngestServer({
   onInvalidFrame(error) {
     console.warn(`Discarding invalid telemetry frame: ${error.message}`);
   },
+  onClientError(error) {
+    console.warn(`Telemetry client socket error: ${error.message}`);
+  },
 });
 
 httpServer.on('error', (error) => {

@@ -14,7 +14,7 @@ function isTelemetryFrame(frame) {
     && frame.cell_temps.every(Number.isFinite);
 }
 
-function createTcpIngestServer({ onFrame, onInvalidFrame }) {
+function createTcpIngestServer({ onFrame, onInvalidFrame, onClientError }) {
   if (typeof onFrame !== 'function') {
     throw new TypeError('onFrame callback is required');
   }
@@ -23,7 +23,8 @@ function createTcpIngestServer({ onFrame, onInvalidFrame }) {
     socket.setEncoding('utf8');
     let pending = '';
     socket.on('error', (error) => {
-      if (onInvalidFrame) onInvalidFrame(error, '');
+      if (onClientError) onClientError(error);
+      else console.warn(`Telemetry client socket error: ${error.message}`);
     });
 
     socket.on('data', (chunk) => {
@@ -42,14 +43,23 @@ function createTcpIngestServer({ onFrame, onInvalidFrame }) {
           return;
         }
         if (line.length > 0) {
+          let frame;
           try {
-            const frame = JSON.parse(line);
-            if (!isTelemetryFrame(frame)) {
-              throw new Error('Frame does not match the telemetry schema');
-            }
+            frame = JSON.parse(line);
+          } catch (error) {
+            reportInvalidFrame(error, line, onInvalidFrame);
+            newlineIndex = pending.indexOf('\n');
+            continue;
+          }
+          if (!isTelemetryFrame(frame)) {
+            reportInvalidFrame(new Error('Frame does not match the telemetry schema'), line, onInvalidFrame);
+            newlineIndex = pending.indexOf('\n');
+            continue;
+          }
+          try {
             onFrame(frame);
           } catch (error) {
-            if (onInvalidFrame) onInvalidFrame(error, line);
+            console.error(`Telemetry frame handler failed: ${error.message}`);
           }
         }
         newlineIndex = pending.indexOf('\n');
@@ -59,7 +69,18 @@ function createTcpIngestServer({ onFrame, onInvalidFrame }) {
         socket.destroy(new Error('Telemetry frame exceeds the maximum length'));
       }
     });
+
+    socket.on('end', () => {
+      if (pending.trim().length > 0) {
+        reportInvalidFrame(new Error('Connection ended before the NDJSON newline delimiter'), pending, onInvalidFrame);
+      }
+    });
   });
+}
+
+function reportInvalidFrame(error, line, onInvalidFrame) {
+  if (onInvalidFrame) onInvalidFrame(error, line);
+  else console.warn(`Discarding invalid telemetry frame: ${error.message}`);
 }
 
 module.exports = { createTcpIngestServer, isTelemetryFrame };
