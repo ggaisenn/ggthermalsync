@@ -16,7 +16,7 @@
   <body class="app-shell-page home-page">
     <header class="app-header">
       <a class="app-title" href="#home" aria-label="ThermaSync-EV home">ThermaSync-EV</a>
-      <div class="header-status" role="status" aria-live="polite"><span class="status-dot" id="connection-dot"></span><span id="system-status">CONNECTING</span><span class="status-divider">/</span><span id="stream-status">WAITING FOR STREAM</span></div>
+      <div class="header-status metric-pill" role="status" aria-live="polite"><span class="status-dot" id="connection-dot"></span><span id="system-status">CONNECTING</span><span class="status-divider">/</span><span id="stream-status">WAITING FOR STREAM</span></div>
       <nav class="view-navigation" aria-label="Dashboard views"><button type="button" id="nav-home" class="view-button active" aria-current="page">Home</button><button type="button" id="nav-simulation" class="view-button">Simulation</button></nav>
       <button class="theme-toggle app-theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch theme"><span class="theme-icon" aria-hidden="true">☾</span></button>
     </header>
@@ -53,10 +53,10 @@
       <section id="page-simulation" class="page-view simulation-page" aria-label="Live simulation">
         <div class="simulation-shell">
           <section class="telemetry-hud" aria-label="Live telemetry overview">
-            <article class="hud-metric"><span>AVERAGE PACK TEMP</span><div><strong id="avg-pack-temp">—</strong><small>°C</small></div></article>
-            <article class="hud-metric"><span>MAX CELL TEMP</span><div><strong id="max-cell-temp">—</strong><small>°C</small></div></article>
-            <article class="hud-metric"><span>PID COOLING OUTPUT</span><div><strong id="pid-cooling-rpm">—</strong><small>RPM</small></div></article>
-            <article class="hud-metric fault-metric"><span>ACTIVE FAULT ALERTS</span><div><strong id="active-fault-alerts">0</strong><small>faults</small></div></article>
+            <article class="hud-metric hud-card telemetry-card"><span>AVERAGE PACK TEMP</span><div><strong id="avg-pack-temp">—</strong><small>°C</small></div></article>
+            <article class="hud-metric hud-card telemetry-card"><span>MAX CELL TEMP</span><div><strong id="max-cell-temp">—</strong><small>°C</small></div></article>
+            <article class="hud-metric hud-card telemetry-card"><span>PID COOLING OUTPUT</span><div><strong id="pid-cooling-rpm">—</strong><small>RPM</small></div></article>
+            <article class="hud-metric hud-card telemetry-card fault-metric"><span>ACTIVE FAULT ALERTS</span><div><strong id="active-fault-alerts">0</strong><small>faults</small></div></article>
           </section>
           <div class="scene-backdrop"><div id="threejs-container" class="threejs-mount"><canvas id="simulation-canvas" aria-label="Three.js battery thermal viewport"></canvas></div><div class="scene-placeholder" id="scene-placeholder"><span class="preview-orbit"><i></i><i></i><i></i></span><strong>Thermal scene</strong><span>Battery model construction will be added in a later task.</span></div></div>
           <section class="warning-stack" id="warning-stack" aria-live="polite" aria-label="Thermal alerts"></section>
