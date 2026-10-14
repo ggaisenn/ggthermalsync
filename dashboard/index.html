@@ -17,7 +17,7 @@
     <header class="app-header">
       <a class="app-title" href="#home" aria-label="ThermaSync-EV home">ThermaSync-EV</a>
       <div class="header-status metric-pill" role="status" aria-live="polite"><span class="status-dot" id="connection-dot"></span><span id="system-status">CONNECTING</span><span class="status-divider">/</span><span id="stream-status">WAITING FOR STREAM</span></div>
-      <nav class="view-navigation" aria-label="Dashboard views"><button type="button" id="nav-home" class="view-button active" aria-current="page">Home</button><button type="button" id="nav-simulation" class="view-button">Simulation</button></nav>
+      <nav class="view-navigation" aria-label="Dashboard views"><button type="button" id="nav-home" class="view-button nav-link active" data-target-page="page-home" aria-current="page">Home</button><button type="button" id="nav-simulation" class="view-button nav-link" data-target-page="page-simulation" aria-current="false">Simulation</button></nav>
       <button class="theme-toggle app-theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch theme"><span class="theme-icon" aria-hidden="true">☾</span></button>
     </header>
 
@@ -59,29 +59,31 @@
             <article class="hud-metric hud-card telemetry-card fault-metric"><span>ACTIVE FAULT ALERTS</span><div><strong id="active-fault-alerts">0</strong><small>faults</small></div></article>
           </section>
           <section class="warning-stack" id="warning-stack" aria-live="polite" aria-label="Thermal alerts"></section>
-          <div class="simulation-body-grid">
-            <section class="scene-backdrop" aria-label="3D thermal viewport"><div id="threejs-container" class="threejs-mount"><canvas id="simulation-canvas" aria-label="Three.js battery thermal viewport"></canvas></div><div class="scene-placeholder" id="scene-placeholder"><span class="preview-orbit"><i></i><i></i><i></i></span><strong>Thermal scene</strong><span>Battery model construction will be added in a later task.</span></div></section>
-            <aside class="charts-panel glass-panel" id="charts-panel" aria-label="Time-series charts">
-              <div class="float-panel-title"><h2>Live time series</h2><span class="chart-window-label">LAST 60 SEC</span></div>
+          <section class="scene-backdrop" aria-label="3D thermal viewport"><div id="threejs-container" class="threejs-mount"><canvas id="simulation-canvas" aria-label="Three.js battery thermal viewport"></canvas></div><div class="scene-placeholder" id="scene-placeholder"><span class="preview-orbit"><i></i><i></i><i></i></span><strong>Thermal scene</strong><span>Battery model construction will be added in a later task.</span></div></section>
+          <button class="panel-edge-tab left-edge-tab" id="show-charts" type="button" aria-label="Show charts">Charts ›</button>
+          <button class="panel-edge-tab right-edge-tab" id="show-metrics" type="button" aria-label="Show metrics">‹ Metrics</button>
+          <aside class="floating-panel charts-panel glass-panel" id="charts-panel" aria-label="Time-series charts">
+              <div class="float-panel-title"><h2>Charts</h2><button class="panel-toggle" id="hide-charts" type="button" aria-label="Hide charts">‹</button></div>
               <section class="chart-block"><div class="chart-title"><strong>Average pack temperature</strong><code>temp_avg</code></div><div class="float-chart-wrap" id="telemetry-chart-container"><canvas id="chart-canvas" aria-label="Average pack temperature for the last 60 seconds"></canvas></div><div class="chart-scale-labels"><span>−60 s</span><span>now</span></div><div class="mini-temperature-scale"><span>cool</span><i></i><span>hot</span></div></section>
               <section class="chart-block"><div class="chart-title"><strong>Cooling pump output</strong><code>fan_speed</code></div><div class="float-chart-wrap"><canvas id="cooling-chart" aria-label="Cooling pump output for the last 60 seconds"></canvas></div><div class="chart-scale-labels"><span>−60 s</span><span>now</span></div><div class="chart-scale-labels percentage-labels"><span>0%</span><span>100%</span></div></section>
-              <div class="chart-session-meta"><span>SIM TIME <b id="sim-time">— s</b></span><span>CLIENT FPS <b id="dashboard-fps">—</b></span></div>
-            </aside>
-          </div>
-
-          <section class="simulation-bottom-panel" aria-label="Cell temperatures and simulation controls">
+          </aside>
+          <aside class="floating-panel metrics-panel glass-panel" id="metrics-panel" aria-label="Live metrics">
+            <div class="float-panel-title"><h2>Metrics</h2><button class="panel-toggle" id="hide-metrics" type="button" aria-label="Hide metrics">›</button></div>
+            <article class="metric-tile"><div class="metric-name"><span>AVG TEMP</span><code>temp_avg</code></div><div><strong id="avg-temp">—</strong><small>°C</small></div></article>
+            <article class="metric-tile"><div class="metric-name"><span>MAX CELL TEMP</span><code>temp_max</code></div><div><strong id="max-temp">—</strong><small>°C</small></div></article>
+            <div class="chart-session-meta"><span>SIM TIME <b id="sim-time">— s</b></span><span>CLIENT FPS <b id="dashboard-fps">—</b></span></div>
             <section class="cell-hud-block" aria-label="Per-cell temperature matrix"><div class="cell-hud-heading"><h3>Cell temperatures</h3><span>4 × 4 · °C</span></div><div id="cell-grid-hud" class="cell-grid-hud" role="grid" aria-label="Per-cell temperature matrix">
               <button class="cell-value" type="button" role="gridcell" data-cell-index="0" aria-label="Cell 1 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="1" aria-label="Cell 2 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="2" aria-label="Cell 3 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="3" aria-label="Cell 4 temperature unavailable">—</button>
               <button class="cell-value" type="button" role="gridcell" data-cell-index="4" aria-label="Cell 5 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="5" aria-label="Cell 6 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="6" aria-label="Cell 7 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="7" aria-label="Cell 8 temperature unavailable">—</button>
               <button class="cell-value" type="button" role="gridcell" data-cell-index="8" aria-label="Cell 9 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="9" aria-label="Cell 10 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="10" aria-label="Cell 11 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="11" aria-label="Cell 12 temperature unavailable">—</button>
               <button class="cell-value" type="button" role="gridcell" data-cell-index="12" aria-label="Cell 13 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="13" aria-label="Cell 14 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="14" aria-label="Cell 15 temperature unavailable">—</button><button class="cell-value" type="button" role="gridcell" data-cell-index="15" aria-label="Cell 16 temperature unavailable">—</button>
             </div><p id="selected-cell-readout" class="selected-cell-readout" aria-live="polite">Select a cell to inspect its temperature.</p></section>
-
-            <section class="bottom-controls glass-panel" aria-label="Simulation controls">
+          </aside>
+          <section class="bottom-controls glass-panel" aria-label="Simulation controls">
             <div class="pack-scale" role="group" aria-label="Pack temperature scale"><div class="scale-heading"><span>PACK TEMPERATURE · LIVE</span><strong id="scale-reading">— °C</strong></div><div class="temperature-bar-row"><span>cool</span><div class="temperature-bar"><i class="scale-marker" id="scale-marker"></i><i class="setpoint-tick"></i></div><span>hot</span></div><div class="setpoint-label"><span>35 °C setpoint</span></div></div>
             <div class="control-row"><div class="run-controls"><button class="control-button primary-control" id="start-simulation" type="button">▶ <span>Start</span></button><button class="control-button" id="pause-simulation" type="button">Ⅱ <span>Pause</span></button><button class="control-button" id="reset-simulation" type="button">↻ <span>Reset</span></button></div><label class="scenario-select">Scenario<select id="scenario-select"><option value="normal">Normal drive cycle</option><option value="overheat">Overheat scenario</option></select><span aria-hidden="true">⌄</span></label></div>
-            </section>
           </section>
+          <div class="mobile-panel-scrim" id="mobile-panel-scrim" aria-hidden="true"></div>
         </div>
       </section>
     </main>

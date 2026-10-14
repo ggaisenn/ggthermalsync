@@ -57,6 +57,7 @@ button { color: inherit; }
 .app-shell-page { min-height: 100vh; }
 .page-view { display: none; opacity: 0; }
 .page-view.active { display: block; animation: view-enter .18s ease both; }
+.page-view.hidden { display: none; opacity: 0; animation: none; }
 @keyframes view-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 .app-header { height: 62px; padding: 0 24px; display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 24px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .app-title { font: 600 15px var(--mono); letter-spacing: -.04em; white-space: nowrap; }
@@ -74,7 +75,7 @@ button { color: inherit; }
 
 /* Blueprint home page */
 .home-page { min-height: 100vh; }
-.home-shell { min-height: 100vh; width: min(1280px,100%); margin: 0 auto; display: flex; flex-direction: column; background: var(--page); }
+.home-shell { min-height: calc(100vh - 62px); width: 100%; max-width: none; margin: 0; display: flex; flex-direction: column; background: var(--page); }
 .home-header { height: 68px; flex: none; padding: 0 48px; display: flex; align-items: center; justify-content: space-between; gap: 28px; border-bottom: 1px solid var(--line); }
 .home-brand { font: 600 16px var(--mono); letter-spacing: -.04em; }
 .home-nav { display: flex; align-items: center; gap: 27px; height: 100%; }
@@ -177,6 +178,8 @@ html[data-theme="dark"] .chart-block { background: rgba(0,0,0,.12); }
 .mini-temperature-scale { display: flex; align-items: center; gap: 7px; margin-top: 9px; color: var(--muted); font: 9px var(--mono); }
 .mini-temperature-scale i { flex: 1; height: 5px; border-radius: 5px; background: linear-gradient(90deg,var(--thermal-blue),var(--thermal-green),var(--thermal-amber),var(--thermal-red)); }
 .percentage-labels { margin-top: 5px; }
+.chart-session-meta { display: flex; justify-content: space-between; gap: 10px; padding: 1px 3px; color: var(--muted); font: 9px var(--mono); }
+.chart-session-meta b { padding-left: 4px; color: var(--text); font-weight: 500; }
 .metric-tile { padding: 10px 11px 9px; display: flex; flex-direction: column; gap: 7px; border: 1px solid var(--glass-line); border-radius: 8px; background: rgba(255,255,255,.28); }
 html[data-theme="dark"] .metric-tile { background: rgba(0,0,0,.12); }
 .metric-name { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font: 9px var(--mono); letter-spacing: .04em; }
@@ -297,49 +300,4 @@ html[data-theme="dark"] .primary-control { color: #171b20; background: #eef2f8; 
   .panel-edge-tab { bottom: 171px; }
 }
 
-/* Primary simulation layout: telemetry row, viewport/charts, then cell/control panel. */
-.simulation-shell { display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr) auto; gap: 11px; height: 100%; min-height: 0; padding: 12px; overflow: hidden; }
-.telemetry-hud { position: relative; inset: auto; left: auto; width: 100%; height: 75px; display: grid; grid-template-columns: repeat(4,1fr); grid-row: 1; transform: none; }
-.simulation-body-grid { min-height: 0; display: grid; grid-template-columns: minmax(0,3fr) minmax(300px,2fr); gap: 11px; grid-row: 2; }
-.scene-backdrop { position: relative; inset: auto; min-width: 0; min-height: 340px; overflow: hidden; border: 1px solid var(--glass-line); border-radius: 12px; background: rgba(255,255,255,.12); }
-#threejs-container { position: relative; inset: auto; width: 100%; height: 100%; min-height: 340px; }
-#simulation-canvas { position: relative; width: 100%; height: 100%; min-height: 340px; }
-#chart-canvas { position: relative; display: block; width: 100%; height: 100%; }
-.charts-panel { position: relative; inset: auto; width: auto; min-width: 0; max-height: none; min-height: 340px; overflow-y: auto; grid-column: 2; grid-row: 1; transform: none; opacity: 1; pointer-events: auto; transition: none; }
-.chart-block { flex: 1; }
-.float-chart-wrap { height: clamp(100px,16vh,175px); }
-.chart-window-label { color: var(--muted); font: 9px var(--mono); letter-spacing: .05em; }
-.chart-session-meta { display: flex; justify-content: space-between; gap: 12px; padding: 2px 3px; color: var(--muted); font: 9px var(--mono); }
-.chart-session-meta b { padding-left: 5px; color: var(--text); font-weight: 500; }
-.simulation-bottom-panel { min-width: 0; display: grid; grid-template-columns: minmax(250px,2fr) minmax(0,3fr); align-items: stretch; gap: 11px; grid-row: 3; }
-.simulation-bottom-panel .cell-hud-block { margin: 0; padding: 10px 12px; border: 1px solid var(--glass-line); border-radius: 11px; background: var(--glass); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: var(--glass-shadow); }
-.cell-grid-hud { grid-template-columns: repeat(4,1fr); }
-.cell-value { padding: 0; cursor: pointer; font: 10px var(--mono); transition: background-color .12s,border-color .12s,transform .12s; }
-.cell-value:hover { transform: translateY(-1px); border-color: var(--blue); }
-.cell-value.selected { outline: 2px solid var(--hud-cyan); outline-offset: 1px; color: var(--text); }
-.selected-cell-readout { min-height: 13px; margin: 7px 0 0; color: var(--muted); font: 9px var(--mono); }
-.simulation-bottom-panel .bottom-controls { position: relative; inset: auto; width: auto; transform: none; padding: 12px 15px; border-radius: 11px; }
-.simulation-bottom-panel .metric-tile { min-width: 0; }
-.metrics-panel,.panel-edge-tab,.mobile-panel-scrim { display: none !important; }
-@media (max-width: 1024px) {
-  .simulation-page { height: auto; min-height: calc(100vh - 62px); overflow: visible; }
-  .simulation-shell { height: auto; min-height: calc(100vh - 62px); overflow: visible; grid-template-rows: auto auto auto; }
-  .simulation-body-grid { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(300px,45vh) auto; }
-  .scene-backdrop,#threejs-container,#simulation-canvas { min-height: 300px; }
-  .charts-panel { grid-column: 1; grid-row: 2; min-height: 340px; }
-  .float-chart-wrap { height: 145px; }
-}
-@media (max-width: 640px) {
-  .simulation-page { min-height: calc(100vh - 58px); }
-  .simulation-shell { min-height: calc(100vh - 58px); padding: 9px; gap: 9px; }
-  .telemetry-hud { height: 101px; grid-template-columns: repeat(2,1fr); gap: 5px; }
-  .simulation-body-grid { grid-template-rows: minmax(280px,42vh) auto; gap: 9px; }
-  .scene-backdrop,#threejs-container,#simulation-canvas { min-height: 280px; }
-  .charts-panel { min-height: 330px; padding: 11px; }
-  .float-chart-wrap { height: 125px; }
-  .simulation-bottom-panel { grid-template-columns: minmax(0,1fr); gap: 9px; }
-  .simulation-bottom-panel .cell-hud-block { padding: 10px; }
-  .cell-value { min-height: 31px; }
-  .simulation-bottom-panel .bottom-controls { min-height: 150px; }
-}
 @media (prefers-reduced-motion: reduce) { *,*:before,*:after { scroll-behavior: auto !important; transition: none !important; } }

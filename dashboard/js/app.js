@@ -16,6 +16,7 @@
   let frameCount = 0;
   let lastFpsSample = performance.now();
   let lastTelemetryAt = 0;
+  let resizeSimulationRenderer = () => {};
 
   function byId(id) { return document.getElementById(id); }
   function setText(id, text) { const element = byId(id); if (element) element.textContent = text; }
@@ -160,6 +161,7 @@
           : (frame.overheat === true || frame.alert === true || frame.alert === 'overheat' ? 1 : 0);
     setText('active-fault-alerts', String(faultCount));
     setText('avg-temp', average.toFixed(2));
+    setText('max-temp', peak.toFixed(2));
     setText('sim-time', Number.isFinite(Number(frame.timestamp)) ? Number(frame.timestamp).toFixed(1) : '—');
     setText('scale-reading', `${average.toFixed(2)} °C`);
     const marker = byId('scale-marker');
@@ -256,6 +258,10 @@
         camera.aspect = bounds.width / bounds.height;
         camera.updateProjectionMatrix();
       };
+      if (canvasId === 'simulation-canvas') {
+        resizeSimulationRenderer = resize;
+        window.addEventListener('simulation-view-shown', resize);
+      }
       new ResizeObserver(resize).observe(parent);
       resize();
       const render = (now) => {
@@ -293,25 +299,62 @@
     });
   }
 
+  function initPanels() {
+    const body = document.body;
+    const compact = matchMedia('(max-width: 900px)');
+    const closePanels = () => body.classList.remove('charts-open', 'metrics-open');
+    const updateLayout = () => {
+      if (compact.matches) body.classList.add('charts-hidden', 'metrics-hidden');
+      else {
+        body.classList.remove('charts-hidden', 'metrics-hidden');
+        closePanels();
+      }
+    };
+    byId('hide-charts')?.addEventListener('click', () => {
+      if (compact.matches) body.classList.remove('charts-open');
+      else body.classList.add('charts-hidden');
+    });
+    byId('hide-metrics')?.addEventListener('click', () => {
+      if (compact.matches) body.classList.remove('metrics-open');
+      else body.classList.add('metrics-hidden');
+    });
+    byId('show-charts')?.addEventListener('click', () => {
+      if (compact.matches) body.classList.toggle('charts-open');
+      else body.classList.remove('charts-hidden');
+    });
+    byId('show-metrics')?.addEventListener('click', () => {
+      if (compact.matches) body.classList.toggle('metrics-open');
+      else body.classList.remove('metrics-hidden');
+    });
+    byId('mobile-panel-scrim')?.addEventListener('click', closePanels);
+    compact.addEventListener('change', updateLayout);
+    updateLayout();
+  }
+
   function initPageNavigation() {
     const home = byId('page-home');
     const simulation = byId('page-simulation');
-    const homeButton = byId('nav-home');
-    const simulationButton = byId('nav-simulation');
-    if (!home || !simulation || !homeButton || !simulationButton) return;
-    function showPage(page) {
-      const showSimulation = page === 'simulation';
+    if (!home || !simulation) return;
+    const navLinks = [...document.querySelectorAll('[data-target-page]')];
+    function showPage(target) {
+      const targetId = target === 'simulation' || target === 'page-simulation' ? 'page-simulation' : 'page-home';
+      const showSimulation = targetId === 'page-simulation';
       home.classList.toggle('active', !showSimulation);
       simulation.classList.toggle('active', showSimulation);
-      homeButton.classList.toggle('active', !showSimulation);
-      simulationButton.classList.toggle('active', showSimulation);
-      homeButton.setAttribute('aria-current', showSimulation ? 'false' : 'page');
-      simulationButton.setAttribute('aria-current', showSimulation ? 'page' : 'false');
+      home.classList.toggle('hidden', showSimulation);
+      simulation.classList.toggle('hidden', !showSimulation);
+      navLinks.forEach((link) => {
+        const active = link.dataset.targetPage === targetId;
+        link.classList.toggle('active', active);
+        link.setAttribute('aria-current', active ? 'page' : 'false');
+      });
       document.body.classList.toggle('simulation-active', showSimulation);
       document.body.classList.toggle('home-active', !showSimulation);
       if (showSimulation) {
         history.replaceState(null, '', '#simulation');
         requestAnimationFrame(() => {
+          resizeSimulationRenderer();
+          window.dispatchEvent(new Event('simulation-view-shown'));
           temperatureChart?.resize();
           coolingChart?.resize();
         });
@@ -319,16 +362,22 @@
         history.replaceState(null, '', '#home');
       }
     }
-    homeButton.addEventListener('click', () => showPage('home'));
-    simulationButton.addEventListener('click', () => showPage('simulation'));
-    document.querySelectorAll('[data-open-simulation]').forEach((button) => button.addEventListener('click', () => showPage('simulation')));
-    const initialPage = location.hash === '#simulation' ? 'simulation' : 'home';
-    showPage(initialPage);
-    addEventListener('hashchange', () => showPage(location.hash === '#simulation' ? 'simulation' : 'home'));
+    document.addEventListener('click', (event) => {
+      const link = event.target.closest('[data-target-page]');
+      if (link) {
+        event.preventDefault();
+        showPage(link.dataset.targetPage);
+      } else if (event.target.closest('[data-open-simulation]')) {
+        showPage('page-simulation');
+      }
+    });
+    showPage(location.hash === '#simulation' ? 'page-simulation' : 'page-home');
+    addEventListener('hashchange', () => showPage(location.hash === '#simulation' ? 'page-simulation' : 'page-home'));
   }
 
   if (isSimulation) {
     createCharts();
+    initPanels();
     initCellGrid();
     initScene('simulation-canvas');
     connectTelemetry();
