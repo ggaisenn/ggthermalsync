@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f4ef" />
+    <title>ggthermalsync · Simulation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/styles.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+    <script defer src="js/app.js"></script>
+  </head>
+  <body class="simulation-page">
+    <main class="simulation-shell">
+      <div class="scene-backdrop" id="scene-backdrop"><canvas id="simulation-canvas" aria-label="Battery thermal visualization viewport"></canvas><div class="scene-placeholder" id="scene-placeholder"><span class="preview-orbit"><i></i><i></i><i></i></span><strong>Thermal scene</strong><span>Battery model construction will be added in a later task.</span></div></div>
+
+      <header class="simulation-nav glass-panel">
+        <a href="./" class="nav-brand">ggthermalsync</a>
+        <nav aria-label="Primary navigation"><a href="./">Home</a><a class="active" aria-current="page" href="simulation.html">Simulation</a><a href="https://example.com/portfolio" target="_blank" rel="noreferrer">Portfolio ↗</a><a href="https://github.com/" target="_blank" rel="noreferrer">GitHub ↗</a></nav>
+      </header>
+      <button class="theme-toggle simulation-theme-toggle glass-panel" type="button" aria-label="Switch to dark mode" title="Switch theme"><span class="theme-icon" aria-hidden="true">☾</span></button>
+
+      <section class="warning-stack" id="warning-stack" aria-live="polite" aria-label="Thermal alerts"></section>
+      <button class="panel-edge-tab left-edge-tab" id="show-charts" type="button" aria-label="Show charts">Charts <span>›</span></button>
+      <button class="panel-edge-tab right-edge-tab" id="show-metrics" type="button" aria-label="Show metrics"><span>‹</span> Metrics</button>
+
+      <aside class="floating-panel charts-panel glass-panel" id="charts-panel" aria-label="Charts">
+        <div class="float-panel-title"><h2>Charts</h2><button class="panel-toggle" id="hide-charts" type="button" aria-label="Hide charts panel">‹</button></div>
+        <section class="chart-block"><div class="chart-title"><strong>Average pack temperature</strong><code>temp_avg</code></div><div class="float-chart-wrap"><canvas id="temperature-chart" aria-label="Average pack temperature for the last 60 seconds"></canvas></div><div class="chart-scale-labels"><span>−60 s</span><span>now</span></div><div class="mini-temperature-scale"><span>cool</span><i></i><span>hot</span></div></section>
+        <section class="chart-block"><div class="chart-title"><strong>Cooling pump output</strong><code>fan_speed</code></div><div class="float-chart-wrap"><canvas id="cooling-chart" aria-label="Cooling pump output for the last 60 seconds"></canvas></div><div class="chart-scale-labels"><span>−60 s</span><span>now</span></div><div class="chart-scale-labels percentage-labels"><span>0%</span><span>100%</span></div></section>
+      </aside>
+
+      <aside class="floating-panel metrics-panel glass-panel" id="metrics-panel" aria-label="Metrics">
+        <div class="float-panel-title"><h2>Metrics</h2><button class="panel-toggle" id="hide-metrics" type="button" aria-label="Hide metrics panel">›</button></div>
+        <div class="metric-tile"><span class="metric-name">AVG TEMP <code>temp_avg</code></span><div><strong id="avg-temp">—</strong><small>°C</small></div></div>
+        <div class="metric-tile"><span class="metric-name">MAX CELL TEMP <code>max(cell_temps)</code></span><div><strong id="max-temp">—</strong><small>°C</small></div></div>
+        <div class="metric-tile"><span class="metric-name">TIMESTAMP <code>timestamp</code></span><div><strong id="sim-time">—</strong><small>s</small></div></div>
+        <div class="metric-tile"><span class="metric-name">DASHBOARD FPS <code>client</code></span><div><strong id="dashboard-fps">—</strong><small>fps</small></div></div>
+      </aside>
+
+      <section class="bottom-controls glass-panel" aria-label="Simulation controls">
+        <div class="pack-scale" role="group" aria-label="Pack temperature scale">
+          <div class="scale-heading"><span>PACK TEMPERATURE · LIVE</span><strong id="scale-reading">— °C</strong></div>
+          <div class="temperature-bar-row"><span>cool</span><div class="temperature-bar"><i class="scale-marker" id="scale-marker"></i><i class="setpoint-tick" id="setpoint-tick"></i></div><span>hot</span></div>
+          <div class="setpoint-label"><span>35 °C setpoint</span></div>
+        </div>
+        <div class="control-row">
+          <div class="run-controls"><button class="control-button primary-control" id="start-simulation" type="button">▶ <span>Start</span></button><button class="control-button" id="pause-simulation" type="button">Ⅱ <span>Pause</span></button><button class="control-button" id="reset-simulation" type="button">↻ <span>Reset</span></button></div>
+          <label class="scenario-select">Scenario<select id="scenario-select"><option value="normal">Normal drive cycle</option><option value="overheat">Overheat scenario</option></select><span aria-hidden="true">⌄</span></label>
+        </div>
+      </section>
+      <div class="mobile-panel-scrim" id="mobile-panel-scrim"></div>
+    </main>
+  </body>
+</html>
