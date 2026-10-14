@@ -70,7 +70,7 @@
 
   function createCharts() {
     if (!isSimulation || !window.Chart) return;
-    temperatureChart = new Chart(byId('telemetry-chart'), {
+    temperatureChart = new Chart(byId('chart-canvas'), {
       type: 'line',
       data: { labels: [], datasets: [
         { label: 'Average temperature', data: temperatureValues, borderColor: '#1f4fd1', backgroundColor: 'rgba(31,79,209,.12)', borderWidth: 1.8, pointRadius: 0, pointHoverRadius: 3, fill: true, tension: .32 },
@@ -160,7 +160,6 @@
           : (frame.overheat === true || frame.alert === true || frame.alert === 'overheat' ? 1 : 0);
     setText('active-fault-alerts', String(faultCount));
     setText('avg-temp', average.toFixed(2));
-    setText('max-temp', peak.toFixed(2));
     setText('sim-time', Number.isFinite(Number(frame.timestamp)) ? Number(frame.timestamp).toFixed(1) : '—');
     setText('scale-reading', `${average.toFixed(2)} °C`);
     const marker = byId('scale-marker');
@@ -180,7 +179,13 @@
       const value = cells[index];
       cell.textContent = Number.isFinite(value) ? value.toFixed(1) : '—';
       cell.classList.toggle('cell-hot', Number.isFinite(value) && value >= 40);
+      cell.setAttribute('aria-label', Number.isFinite(value) ? `Cell ${index + 1}, ${value.toFixed(1)} degrees Celsius` : `Cell ${index + 1} temperature unavailable`);
     });
+    const selectedIndex = Number(byId('cell-grid-hud')?.dataset.selectedIndex);
+    if (Number.isInteger(selectedIndex) && selectedIndex >= 0) {
+      const selectedValue = cells[selectedIndex];
+      setText('selected-cell-readout', Number.isFinite(selectedValue) ? `Cell ${selectedIndex + 1}: ${selectedValue.toFixed(1)} °C` : `Cell ${selectedIndex + 1}: temperature unavailable`);
+    }
     appendFrameToCharts({ ...frame, temp_avg: average, fan_speed: fan });
   }
 
@@ -274,21 +279,17 @@
     } catch (_) { /* The placeholder remains when WebGL is not available. */ }
   }
 
-  function initPanels() {
-    const page = document.body;
-    const narrow = matchMedia('(max-width: 900px)');
-    if (narrow.matches) page.classList.add('charts-hidden', 'metrics-hidden');
-    const hideCharts = () => { page.classList.add('charts-hidden'); page.classList.remove('charts-open'); };
-    const hideMetrics = () => { page.classList.add('metrics-hidden'); page.classList.remove('metrics-open'); };
-    byId('hide-charts').addEventListener('click', hideCharts);
-    byId('hide-metrics').addEventListener('click', hideMetrics);
-    byId('show-charts').addEventListener('click', () => { page.classList.remove('charts-hidden'); page.classList.add('charts-open'); });
-    byId('show-metrics').addEventListener('click', () => { page.classList.remove('metrics-hidden'); page.classList.add('metrics-open'); });
-    byId('mobile-panel-scrim').addEventListener('click', () => { hideCharts(); hideMetrics(); });
-    narrow.addEventListener('change', (event) => {
-      page.classList.remove('charts-open', 'metrics-open');
-      if (event.matches) page.classList.add('charts-hidden', 'metrics-hidden');
-      else page.classList.remove('charts-hidden', 'metrics-hidden');
+  function initCellGrid() {
+    const grid = byId('cell-grid-hud');
+    if (!grid) return;
+    grid.querySelectorAll('.cell-value').forEach((cell) => {
+      cell.addEventListener('click', () => {
+        grid.dataset.selectedIndex = cell.dataset.cellIndex;
+        grid.querySelectorAll('.cell-value').forEach((item) => item.classList.toggle('selected', item === cell));
+        const index = Number(cell.dataset.cellIndex);
+        const value = cell.textContent.trim();
+        setText('selected-cell-readout', value === '—' ? `Cell ${index + 1}: temperature unavailable` : `Cell ${index + 1}: ${value} °C`);
+      });
     });
   }
 
@@ -328,7 +329,7 @@
 
   if (isSimulation) {
     createCharts();
-    initPanels();
+    initCellGrid();
     initScene('simulation-canvas');
     connectTelemetry();
   }
