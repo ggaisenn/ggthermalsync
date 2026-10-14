@@ -4,7 +4,7 @@
   const root = document.documentElement;
   const themeToggle = document.querySelector('.theme-toggle');
   const themeIcon = document.querySelector('.theme-icon');
-  const isSimulation = document.body.classList.contains('simulation-page');
+  const isSimulation = Boolean(document.getElementById('page-simulation'));
   const maxPoints = 120;
   const temperatureValues = [];
   const coolingValues = [];
@@ -70,7 +70,7 @@
 
   function createCharts() {
     if (!isSimulation || !window.Chart) return;
-    temperatureChart = new Chart(byId('temperature-chart'), {
+    temperatureChart = new Chart(byId('telemetry-chart'), {
       type: 'line',
       data: { labels: [], datasets: [
         { label: 'Average temperature', data: temperatureValues, borderColor: '#1f4fd1', backgroundColor: 'rgba(31,79,209,.12)', borderWidth: 1.8, pointRadius: 0, pointHoverRadius: 3, fill: true, tension: .32 },
@@ -147,6 +147,18 @@
     const fan = Number(frame.fan_speed);
     const cells = Array.isArray(frame.cell_temps) ? frame.cell_temps.map(Number).filter(Number.isFinite) : [];
     const peak = cells.length ? Math.max(...cells) : average;
+    setText('avg-pack-temp', average.toFixed(2));
+    setText('max-cell-temp', peak.toFixed(2));
+    const pumpRpm = Number(frame.fan_rpm ?? frame.pump_rpm);
+    setText('pid-cooling-rpm', Number.isFinite(pumpRpm) ? pumpRpm.toFixed(0) : '—');
+    const faultCount = Array.isArray(frame.faults)
+      ? frame.faults.length
+      : Array.isArray(frame.active_faults)
+        ? frame.active_faults.length
+        : Number.isFinite(Number(frame.active_faults))
+          ? Number(frame.active_faults)
+          : (frame.overheat === true || frame.alert === true || frame.alert === 'overheat' ? 1 : 0);
+    setText('active-fault-alerts', String(faultCount));
     setText('avg-temp', average.toFixed(2));
     setText('max-temp', peak.toFixed(2));
     setText('sim-time', Number.isFinite(Number(frame.timestamp)) ? Number(frame.timestamp).toFixed(1) : '—');
@@ -162,6 +174,13 @@
     dot?.classList.add('connected');
     dot?.classList.remove('disconnected');
     setText('connection-label', 'Live telemetry');
+    setText('system-status', 'ONLINE');
+    setText('stream-status', 'LIVE STREAM');
+    byId('cell-grid-hud')?.querySelectorAll('.cell-value').forEach((cell, index) => {
+      const value = cells[index];
+      cell.textContent = Number.isFinite(value) ? value.toFixed(1) : '—';
+      cell.classList.toggle('cell-hot', Number.isFinite(value) && value >= 40);
+    });
     appendFrameToCharts({ ...frame, temp_avg: average, fan_speed: fan });
   }
 
@@ -188,6 +207,7 @@
       socket = new WebSocket(resolveWebSocketUrl());
       socket.addEventListener('open', () => {
         reconnectDelay = 1000;
+        setText('system-status', 'ONLINE');
         setText('connection-label', 'Connected · waiting for frames');
         loadHistory();
       });
@@ -198,11 +218,15 @@
       socket.addEventListener('close', () => {
         dot?.classList.remove('connected');
         dot?.classList.add('disconnected');
+        setText('system-status', 'OFFLINE');
+        setText('stream-status', 'RECONNECTING');
         setText('connection-label', 'Reconnecting to telemetry');
         reconnectTimer = setTimeout(connectTelemetry, reconnectDelay);
         reconnectDelay = Math.min(reconnectDelay * 2, 15000);
       });
     } catch (_) {
+      setText('system-status', 'OFFLINE');
+      setText('stream-status', 'RECONNECTING');
       setText('connection-label', 'Backend unavailable');
       reconnectTimer = setTimeout(connectTelemetry, reconnectDelay);
       reconnectDelay = Math.min(reconnectDelay * 2, 15000);
@@ -230,8 +254,13 @@
       new ResizeObserver(resize).observe(parent);
       resize();
       const render = (now) => {
+        const simulationPage = byId('page-simulation');
+        if (canvasId === 'simulation-canvas' && simulationPage && !simulationPage.classList.contains('active')) {
+          requestAnimationFrame(render);
+          return;
+        }
         renderer.render(scene, camera);
-        if (isSimulation) {
+        if (canvasId === 'simulation-canvas') {
           frameCount += 1;
           if (now - lastFpsSample >= 1000) {
             setText('dashboard-fps', String(Math.round(frameCount * 1000 / (now - lastFpsSample))));
@@ -263,12 +292,46 @@
     });
   }
 
+  function initPageNavigation() {
+    const home = byId('page-home');
+    const simulation = byId('page-simulation');
+    const homeButton = byId('nav-home');
+    const simulationButton = byId('nav-simulation');
+    if (!home || !simulation || !homeButton || !simulationButton) return;
+    function showPage(page) {
+      const showSimulation = page === 'simulation';
+      home.classList.toggle('active', !showSimulation);
+      simulation.classList.toggle('active', showSimulation);
+      homeButton.classList.toggle('active', !showSimulation);
+      simulationButton.classList.toggle('active', showSimulation);
+      homeButton.setAttribute('aria-current', showSimulation ? 'false' : 'page');
+      simulationButton.setAttribute('aria-current', showSimulation ? 'page' : 'false');
+      document.body.classList.toggle('simulation-active', showSimulation);
+      document.body.classList.toggle('home-active', !showSimulation);
+      if (showSimulation) {
+        history.replaceState(null, '', '#simulation');
+        requestAnimationFrame(() => {
+          temperatureChart?.resize();
+          coolingChart?.resize();
+        });
+      } else {
+        history.replaceState(null, '', '#home');
+      }
+    }
+    homeButton.addEventListener('click', () => showPage('home'));
+    simulationButton.addEventListener('click', () => showPage('simulation'));
+    document.querySelectorAll('[data-open-simulation]').forEach((button) => button.addEventListener('click', () => showPage('simulation')));
+    const initialPage = location.hash === '#simulation' ? 'simulation' : 'home';
+    showPage(initialPage);
+    addEventListener('hashchange', () => showPage(location.hash === '#simulation' ? 'simulation' : 'home'));
+  }
+
   if (isSimulation) {
     createCharts();
     initPanels();
     initScene('simulation-canvas');
     connectTelemetry();
-  } else {
-    initScene('preview-canvas');
   }
+  initPageNavigation();
+  initScene('preview-canvas');
 })();

@@ -4,55 +4,87 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f5f4ef" />
-    <title>ggthermalsync · Home</title>
+    <title>ThermaSync-EV · Battery Thermal Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="css/styles.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script defer src="js/app.js"></script>
   </head>
-  <body class="home-page">
-    <div class="home-shell">
-      <header class="home-header">
-        <a class="home-brand" href="./" aria-label="ggthermalsync home">ggthermalsync</a>
-        <nav class="home-nav" aria-label="Primary navigation">
-          <a class="active" href="./" aria-current="page">Home</a>
-          <a href="simulation.html">Simulation</a>
-          <a href="https://example.com/portfolio" target="_blank" rel="noreferrer">Portfolio ↗</a>
-          <a href="https://github.com/" target="_blank" rel="noreferrer">GitHub repo ↗</a>
-        </nav>
-        <button class="theme-toggle home-theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch theme"><span class="theme-icon" aria-hidden="true">☾</span></button>
-        <button class="mobile-menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false"><span></span><span></span></button>
-      </header>
+  <body class="app-shell-page home-page">
+    <header class="app-header">
+      <a class="app-title" href="#home" aria-label="ThermaSync-EV home">ThermaSync-EV</a>
+      <div class="header-status" role="status" aria-live="polite"><span class="status-dot" id="connection-dot"></span><span id="system-status">CONNECTING</span><span class="status-divider">/</span><span id="stream-status">WAITING FOR STREAM</span></div>
+      <nav class="view-navigation" aria-label="Dashboard views"><button type="button" id="nav-home" class="view-button active" aria-current="page">Home</button><button type="button" id="nav-simulation" class="view-button">Simulation</button></nav>
+      <button class="theme-toggle app-theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch theme"><span class="theme-icon" aria-hidden="true">☾</span></button>
+    </header>
 
-      <main class="home-main">
-        <section class="home-hero">
-          <div class="hero-copy">
-            <p class="hero-eyebrow">EV BATTERY THERMAL SIMULATION</p>
-            <h1>ggthermalsync</h1>
-            <p class="hero-description">A multithreaded C++17 thermal physics engine and real-time telemetry pipeline. It simulates an EV battery pack, holds it at a safe temperature with a PID-controlled cooling loop, and streams every frame live to a dashboard.</p>
-            <div class="stat-chips"><span>16 cells · 4×4 pack</span><span>60 Hz physics</span><span>35 °C setpoint</span></div>
-            <div class="hero-actions"><a class="button button-primary" href="simulation.html">Start simulation <span aria-hidden="true">→</span></a><a class="button button-secondary" href="https://github.com/" target="_blank" rel="noreferrer">View on GitHub ↗</a></div>
-          </div>
-          <div class="preview-card" aria-label="Battery visualization preview">
-            <div class="preview-title">3D PACK REPLICA · AUTO-ROTATE</div>
-            <div class="preview-stage"><canvas id="preview-canvas" aria-hidden="true"></canvas><div class="preview-placeholder"><span class="preview-orbit"><i></i><i></i><i></i></span><span>Model preview will appear here</span></div></div>
-            <div class="preview-scale"><span>cool</span><i></i><span>hot</span></div>
-          </div>
-        </section>
+    <main>
+      <section id="page-home" class="page-view active" aria-labelledby="home-title">
+        <div class="home-shell">
+          <section class="home-hero">
+            <div class="hero-copy">
+              <p class="hero-eyebrow">EV BATTERY THERMAL SIMULATION</p>
+              <h1 id="home-title">ThermaSync-EV</h1>
+              <p class="hero-description">A multithreaded C++17 thermal physics engine and real-time telemetry pipeline. It simulates an EV battery pack, holds it at a safe temperature with a PID-controlled cooling loop, and streams every frame live to a dashboard.</p>
+              <div class="stat-chips"><span>16 cells · 4×4 pack</span><span>60 Hz physics</span><span>35 °C setpoint</span></div>
+              <div class="hero-actions"><button class="button button-primary" type="button" data-open-simulation>Start simulation <span aria-hidden="true">→</span></button><a class="button button-secondary" href="https://github.com/" target="_blank" rel="noreferrer">View on GitHub ↗</a></div>
+            </div>
+            <div class="preview-card" aria-label="Battery visualization preview">
+              <div class="preview-title">3D PACK REPLICA · AUTO-ROTATE</div>
+              <div class="preview-stage"><div id="preview-threejs-container" class="threejs-mount"><canvas id="preview-canvas" aria-hidden="true"></canvas></div><div class="preview-placeholder"><span class="preview-orbit"><i></i><i></i><i></i></span><span>Model preview will appear here</span></div></div>
+              <div class="preview-scale"><span>cool</span><i></i><span>hot</span></div>
+            </div>
+          </section>
+          <section class="how-section">
+            <div class="section-heading"><div><p class="section-eyebrow">THE SYSTEM</p><h2>How it works</h2></div><p>Three tiers, the same as a real telemetry stack, in miniature.</p></div>
+            <div class="tier-grid">
+              <article class="tier-card"><span class="tier-label">TIER 1 · CORE ENGINE</span><h3>C++17</h3><p>Integrates every cell's temperature at a fixed 60 Hz step, with a PID loop driving the cooling pump toward a 35 °C setpoint.</p><span class="tier-index">01</span></article>
+              <article class="tier-card"><span class="tier-label">TIER 2 · TELEMETRY BACKEND</span><h3>Node.js</h3><p>Ingests newline-delimited JSON over TCP :9001, keeps a ring buffer of recent frames and broadcasts to browsers over WebSocket.</p><span class="tier-index">02</span></article>
+              <article class="tier-card"><span class="tier-label">TIER 3 · WEB DASHBOARD</span><h3>Three.js + Chart.js</h3><p>Renders the pack as a 3D heatmap with a live HUD, rolling 60 s charts and overheat alerts.</p><span class="tier-index">03</span></article>
+            </div>
+          </section>
+          <footer class="home-footer"><span>ThermaSync-EV · Battery thermal simulation</span><span>Home · Simulation · Portfolio · GitHub</span></footer>
+        </div>
+      </section>
 
-        <section class="how-section">
-          <div class="section-heading"><div><p class="section-eyebrow">THE SYSTEM</p><h2>How it works</h2></div><p>Three tiers, the same as a real telemetry stack, in miniature.</p></div>
-          <div class="tier-grid">
-            <article class="tier-card"><span class="tier-label">TIER 1 · CORE ENGINE</span><h3>C++17</h3><p>Integrates every cell's temperature at a fixed 60 Hz step, with a PID loop driving the cooling pump toward a 35 °C setpoint.</p><span class="tier-index">01</span></article>
-            <article class="tier-card"><span class="tier-label">TIER 2 · TELEMETRY BACKEND</span><h3>Node.js</h3><p>Ingests newline-delimited JSON over TCP :9001, keeps a ring buffer of recent frames and broadcasts to browsers over WebSocket.</p><span class="tier-index">02</span></article>
-            <article class="tier-card"><span class="tier-label">TIER 3 · WEB DASHBOARD</span><h3>Three.js + Chart.js</h3><p>Renders the pack as a 3D heatmap with a live HUD, rolling 60 s charts and overheat alerts.</p><span class="tier-index">03</span></article>
-          </div>
-        </section>
-      </main>
-      <footer class="home-footer"><span>ggthermalsync · [YOUR NAME]</span><span><a href="./">Home</a> · <a href="simulation.html">Simulation</a> · <a href="https://example.com/portfolio">Portfolio</a> · <a href="https://github.com/">GitHub</a></span></footer>
-    </div>
-    <script>document.querySelector('.mobile-menu-toggle').addEventListener('click', function(){var open=this.getAttribute('aria-expanded')==='true';this.setAttribute('aria-expanded',String(!open));document.querySelector('.home-nav').classList.toggle('open',!open);});</script>
+      <section id="page-simulation" class="page-view simulation-page" aria-label="Live simulation">
+        <div class="simulation-shell">
+          <section class="telemetry-hud" aria-label="Live telemetry overview">
+            <article class="hud-metric"><span>AVERAGE PACK TEMP</span><div><strong id="avg-pack-temp">—</strong><small>°C</small></div></article>
+            <article class="hud-metric"><span>MAX CELL TEMP</span><div><strong id="max-cell-temp">—</strong><small>°C</small></div></article>
+            <article class="hud-metric"><span>PID COOLING OUTPUT</span><div><strong id="pid-cooling-rpm">—</strong><small>RPM</small></div></article>
+            <article class="hud-metric fault-metric"><span>ACTIVE FAULT ALERTS</span><div><strong id="active-fault-alerts">0</strong><small>faults</small></div></article>
+          </section>
+          <div class="scene-backdrop"><div id="threejs-container" class="threejs-mount"><canvas id="simulation-canvas" aria-label="Three.js battery thermal viewport"></canvas></div><div class="scene-placeholder" id="scene-placeholder"><span class="preview-orbit"><i></i><i></i><i></i></span><strong>Thermal scene</strong><span>Battery model construction will be added in a later task.</span></div></div>
+          <section class="warning-stack" id="warning-stack" aria-live="polite" aria-label="Thermal alerts"></section>
+          <button class="panel-edge-tab left-edge-tab" id="show-charts" type="button" aria-label="Show charts">Charts <span>›</span></button>
+          <button class="panel-edge-tab right-edge-tab" id="show-metrics" type="button" aria-label="Show metrics"><span>‹</span> Metrics</button>
+
+          <aside class="floating-panel charts-panel glass-panel" id="charts-panel" aria-label="Charts">
+            <div class="float-panel-title"><h2>Charts</h2><button class="panel-toggle" id="hide-charts" type="button" aria-label="Hide charts panel">‹</button></div>
+            <section class="chart-block"><div class="chart-title"><strong>Average pack temperature</strong><code>temp_avg</code></div><div class="float-chart-wrap" id="telemetry-chart-container"><canvas id="telemetry-chart" aria-label="Average pack temperature for the last 60 seconds"></canvas></div><div class="chart-scale-labels"><span>−60 s</span><span>now</span></div><div class="mini-temperature-scale"><span>cool</span><i></i><span>hot</span></div></section>
+            <section class="chart-block"><div class="chart-title"><strong>Cooling pump output</strong><code>fan_speed</code></div><div class="float-chart-wrap"><canvas id="cooling-chart" aria-label="Cooling pump output for the last 60 seconds"></canvas></div><div class="chart-scale-labels"><span>−60 s</span><span>now</span></div><div class="chart-scale-labels percentage-labels"><span>0%</span><span>100%</span></div></section>
+          </aside>
+
+          <aside class="floating-panel metrics-panel glass-panel" id="metrics-panel" aria-label="Metrics">
+            <div class="float-panel-title"><h2>Metrics</h2><button class="panel-toggle" id="hide-metrics" type="button" aria-label="Hide metrics panel">›</button></div>
+            <div class="metric-tile"><span class="metric-name">AVG TEMP <code>temp_avg</code></span><div><strong id="avg-temp">—</strong><small>°C</small></div></div>
+            <div class="metric-tile"><span class="metric-name">MAX CELL TEMP <code>max(cell_temps)</code></span><div><strong id="max-temp">—</strong><small>°C</small></div></div>
+            <div class="metric-tile"><span class="metric-name">TIMESTAMP <code>timestamp</code></span><div><strong id="sim-time">—</strong><small>s</small></div></div>
+            <div class="metric-tile"><span class="metric-name">DASHBOARD FPS <code>client</code></span><div><strong id="dashboard-fps">—</strong><small>fps</small></div></div>
+            <section class="cell-hud-block"><div class="cell-hud-heading"><h3>Cell temperatures</h3><span>°C</span></div><div id="cell-grid-hud" class="cell-grid-hud" role="grid" aria-label="Per-cell temperature matrix"><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span><span class="cell-value" role="gridcell">—</span></div></section>
+          </aside>
+
+          <section class="bottom-controls glass-panel" aria-label="Simulation controls">
+            <div class="pack-scale" role="group" aria-label="Pack temperature scale"><div class="scale-heading"><span>PACK TEMPERATURE · LIVE</span><strong id="scale-reading">— °C</strong></div><div class="temperature-bar-row"><span>cool</span><div class="temperature-bar"><i class="scale-marker" id="scale-marker"></i><i class="setpoint-tick"></i></div><span>hot</span></div><div class="setpoint-label"><span>35 °C setpoint</span></div></div>
+            <div class="control-row"><div class="run-controls"><button class="control-button primary-control" id="start-simulation" type="button">▶ <span>Start</span></button><button class="control-button" id="pause-simulation" type="button">Ⅱ <span>Pause</span></button><button class="control-button" id="reset-simulation" type="button">↻ <span>Reset</span></button></div><label class="scenario-select">Scenario<select id="scenario-select"><option value="normal">Normal drive cycle</option><option value="overheat">Overheat scenario</option></select><span aria-hidden="true">⌄</span></label></div>
+          </section>
+          <div class="mobile-panel-scrim" id="mobile-panel-scrim"></div>
+        </div>
+      </section>
+    </main>
   </body>
 </html>
