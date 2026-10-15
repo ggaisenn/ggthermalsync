@@ -314,8 +314,8 @@
       if (status === 'critical' && (!hottestCriticalCell || value > hottestCriticalCell.temperature)) hottestCriticalCell = { index, temperature: value };
       if (status !== 'normal' && (!hottestWarningCell || value > hottestWarningCell.temperature)) hottestWarningCell = { index, temperature: value };
     });
-    const criticalCondition = Boolean(hottestCriticalCell) || frame.overheat === true || frame.alert === 'overheat' || frame.alert === 'critical';
-    const warningCondition = Boolean(hottestWarningCell) || frame.alert === 'warning' || frame.alert === true || faultCount > 0;
+    const criticalCondition = Boolean(hottestCriticalCell) || frame.overheat === true || frame.alert === 'overheat' || frame.alert === 'critical' || frame.safety_status === 'critical' || frame.backend_safety_trigger?.level === 'critical';
+    const warningCondition = Boolean(hottestWarningCell) || frame.alert === 'warning' || frame.alert === true || faultCount > 0 || frame.safety_status === 'warning' || frame.backend_safety_trigger?.level === 'warning';
     const packStatus = criticalCondition ? 'critical' : warningCondition ? 'warning' : 'normal';
     const packStatusIndicator = byId('pack-status-indicator');
     if (packStatusIndicator) {

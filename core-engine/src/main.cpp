@@ -10,6 +10,7 @@
 #include "BatteryCell.h"
 #include "JsonEncoder.h"
 #include "PidController.h"
+#include "SafetyLimits.h"
 #include "TcpClient.h"
 using namespace std;
 
@@ -40,8 +41,8 @@ int parseStep(const std::string& value, const std::string& option) {
 void printUsage(const char* executable) {
     std::cout << "Usage: " << executable << " [fault options]\n"
               << "Fault options are scheduled by simulation step (0-999):\n"
-              << "  --cell3-resistance-spike-at STEP   Raise Cell ID 3 heat generation 5x\n"
-              << "  --cell3-resistance-recover-at STEP Restore Cell ID 3 resistance\n"
+              << "  --cell3-resistance-spike-at STEP   Raise Cell #3 heat generation 5x\n"
+              << "  --cell3-resistance-recover-at STEP Restore Cell #3 resistance\n"
               << "  --pump-jam-at STEP                 Force fan output to 0%\n"
               << "  --pump-recover-at STEP             Clear the pump jam\n"
               << "  --help                              Show this help\n";
@@ -118,16 +119,17 @@ int main(int argc, char* argv[]) {
     TcpClient telemetryClient("127.0.0.1", 9001);
     bool connectionWarningShown = false;
     bool pumpJammed = false;
+    bool safetyOverrideReported = false;
 
     // Simulation loop for 1,000 steps
     for (int step = 0; step < TOTAL_STEPS; ++step) {
         if (faults.cell3ResistanceSpikeAt && step == *faults.cell3ResistanceSpikeAt) {
-            batteryPack[3].setInternalResistanceMultiplier(5.0);
-            cout << "FAULT: Cell ID 3 internal resistance spiked (5x) at step " << step << ".\n";
+            batteryPack[2].setInternalResistanceMultiplier(5.0);
+            cout << "FAULT: Cell #3 internal resistance spiked (5x) at step " << step << ".\n";
         }
         if (faults.cell3ResistanceRecoverAt && step == *faults.cell3ResistanceRecoverAt) {
-            batteryPack[3].setInternalResistanceMultiplier(1.0);
-            cout << "RECOVERY: Cell ID 3 internal resistance restored at step " << step << ".\n";
+            batteryPack[2].setInternalResistanceMultiplier(1.0);
+            cout << "RECOVERY: Cell #3 internal resistance restored at step " << step << ".\n";
         }
         if (faults.pumpJamAt && step == *faults.pumpJamAt) {
             pumpJammed = true;
@@ -151,8 +153,14 @@ int main(int argc, char* argv[]) {
 
         const double avgTemp = sumTemp / NUM_CELLS;
         const double pidOutput = controller.update(avgTemp, DT);
-        const double fanSpeed = pumpJammed ? 0.0 : pidOutput;
-        const std::string frame = JsonEncoder::encode(simTime, avgTemp, fanSpeed, cellTemps);
+        const bool fanOverride = maxTemp >= CRITICAL_TEMP_C;
+        const double fanSpeed = fanOverride ? 100.0 : (pumpJammed ? 0.0 : pidOutput);
+        if (fanOverride && !safetyOverrideReported) {
+            cout << "SAFETY OVERRIDE: Cell temperature reached " << maxTemp
+                 << "°C; PID output " << pidOutput << "% overridden to 100% cooling.\n";
+            safetyOverrideReported = true;
+        }
+        const std::string frame = JsonEncoder::encode(simTime, avgTemp, pidOutput, fanSpeed, cellTemps, fanOverride);
         if (!telemetryClient.sendFrame(frame)) {
             if (!connectionWarningShown) {
                 cerr << "Telemetry server unavailable at 127.0.0.1:9001; retrying.\n";

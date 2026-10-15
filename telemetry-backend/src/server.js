@@ -10,6 +10,8 @@ const TCP_HOST = process.env.TCP_HOST || '127.0.0.1';
 const TCP_PORT = Number.parseInt(process.env.TCP_PORT || '9001', 10);
 const HISTORY_CAPACITY = Number.parseInt(process.env.HISTORY_CAPACITY || '3600', 10);
 const WS_BROADCAST_EVERY = parsePositiveInteger(process.env.WS_BROADCAST_EVERY, 5);
+const WARNING_TEMP_C = 45;
+const CRITICAL_TEMP_C = 55;
 
 const history = new RingBuffer(HISTORY_CAPACITY);
 const app = express();
@@ -17,6 +19,7 @@ const httpServer = http.createServer(app);
 // Share the HTTP listener for dashboard WebSocket connections.
 const webSocketServer = new WebSocketServer({ server: httpServer });
 let framesSinceBroadcast = 0;
+let lastSafetyStatus = 'normal';
 
 webSocketServer.on('connection', (client) => {
   // Seed new dashboards immediately; they should not wait for the next downsample tick.
@@ -40,6 +43,32 @@ function broadcastFrame(frame) {
       });
     }
   }
+}
+
+function applyBackendSafetyPolicy(frame) {
+  const cellTemps = frame.cell_temps;
+  const hottestTemperature = Math.max(...cellTemps);
+  const hottestCellIndex = cellTemps.indexOf(hottestTemperature);
+  const warningThreshold = Number.isFinite(frame.warning_threshold) ? frame.warning_threshold : WARNING_TEMP_C;
+  const criticalThreshold = Number.isFinite(frame.critical_threshold) ? frame.critical_threshold : CRITICAL_TEMP_C;
+  const safetyStatus = hottestTemperature >= criticalThreshold ? 'critical'
+    : hottestTemperature >= warningThreshold ? 'warning' : 'normal';
+  const backendSafetyTrigger = safetyStatus === 'normal' ? null : {
+    level: safetyStatus,
+    cell_number: hottestCellIndex + 1,
+    temperature_c: hottestTemperature,
+    action: safetyStatus === 'critical' ? 'request_maximum_cooling' : 'request_increased_cooling',
+    requested_fan_speed: safetyStatus === 'critical' ? 100 : null,
+  };
+
+  return {
+    ...frame,
+    warning_threshold: warningThreshold,
+    critical_threshold: criticalThreshold,
+    max_cell_temp: hottestTemperature,
+    safety_status: safetyStatus,
+    backend_safety_trigger: backendSafetyTrigger,
+  };
 }
 
 app.get('/api/health', (_request, response) => {
@@ -84,6 +113,13 @@ function parseQueryNumber(value) {
 
 const tcpServer = createTcpIngestServer({
   onFrame(frame) {
+    frame = applyBackendSafetyPolicy(frame);
+    if (frame.safety_status !== lastSafetyStatus) {
+      if (frame.backend_safety_trigger) {
+        console.warn(`Backend safety trigger ${frame.safety_status}: Cell #${frame.backend_safety_trigger.cell_number} at ${frame.max_cell_temp.toFixed(2)}°C; ${frame.backend_safety_trigger.action}.`);
+      }
+      lastSafetyStatus = frame.safety_status;
+    }
     history.push(frame);
     framesSinceBroadcast += 1;
     if (framesSinceBroadcast < WS_BROADCAST_EVERY) return;

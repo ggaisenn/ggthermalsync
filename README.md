@@ -129,6 +129,14 @@ node scripts/mock-telemetry-stream.js
 
 Use `node scripts/mock-telemetry-stream.js --overheat` to trigger the thermal warning path. Set `MOCK_TELEMETRY_HZ` to change its rate (1–60 Hz).
 
+Run the end-to-end fault scenario with the backend running and no other telemetry producer connected:
+
+```bash
+node scripts/chaos-injector.js
+```
+
+The injector builds and runs the C++ engine with a Cell #3 resistance spike and pump jam, then checks that the critical frame and backend safety trigger reach a WebSocket client and that the engine overrides the PID command to 100% cooling. Defaults are spike step `100` and pump-jam step `0`; optional flags are `--spike-at STEP`, `--pump-jam-at STEP`, `--recover-cell3-at STEP`, and `--pump-recover-at STEP`.
+
 Connect a WebSocket client from another terminal:
 
 ```bash
@@ -140,7 +148,7 @@ npx wscat -c ws://localhost:8080
 Every simulation frame is emitted as a single line of JSON:
 
 ```json
-{"timestamp": 27.264, "temp_avg": 34.97, "fan_speed": 62.4, "cell_temps": [34.2, 34.9, 35.1, ...]}
+{"timestamp": 27.264, "source": "core-engine", "temp_avg": 34.97, "pid_output": 62.4, "fan_speed": 62.4, "fan_override": false, "warning_threshold": 45, "critical_threshold": 55, "cell_temps": [34.2, 34.9, 35.1, ...]}
 ```
 
 | Field | Type | Description |
@@ -148,6 +156,11 @@ Every simulation frame is emitted as a single line of JSON:
 | `timestamp` | `number` | Simulation time in seconds |
 | `temp_avg` | `number` | Pack mean temperature (°C) |
 | `fan_speed` | `number` | PID-commanded cooling pump output (0–100%) |
+| `pid_output` | `number` | Raw PID output before a critical-temperature safety override |
+| `fan_override` | `boolean` | Whether critical pack temperature forced maximum cooling |
+| `safety_status` | `string` | Backend classification: `normal`, `warning`, or `critical` |
+| `backend_safety_trigger` | `object \| null` | Automated backend alert/action metadata for warning or critical conditions |
+| `warning_threshold` / `critical_threshold` | `number` | Pack safety limits in °C (45 / 55 by default) |
 | `cell_temps` | `number[]` | Per-cell temperatures (°C), 16 entries in grid order |
 
 ## Repository Layout
