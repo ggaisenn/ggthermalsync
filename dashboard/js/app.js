@@ -146,8 +146,12 @@
     if (!frame || !Number.isFinite(Number(frame.temp_avg)) || !Number.isFinite(Number(frame.fan_speed))) return;
     const average = Number(frame.temp_avg);
     const fan = Number(frame.fan_speed);
-    const cells = Array.isArray(frame.cell_temps) ? frame.cell_temps.map(Number).filter(Number.isFinite) : [];
-    const peak = cells.length ? Math.max(...cells) : average;
+    const cells = Array.isArray(frame.cell_temps) ? frame.cell_temps.map((value) => Number.isFinite(Number(value)) ? Number(value) : NaN) : [];
+    const voltages = Array.isArray(frame.cell_voltages) ? frame.cell_voltages.map((value) => Number.isFinite(Number(value)) ? Number(value) : NaN)
+      : Array.isArray(frame.cell_voltage) ? frame.cell_voltage.map((value) => Number.isFinite(Number(value)) ? Number(value) : NaN)
+        : Array.isArray(frame.voltages) ? frame.voltages.map((value) => Number.isFinite(Number(value)) ? Number(value) : NaN) : [];
+    const validCells = cells.filter(Number.isFinite);
+    const peak = validCells.length ? Math.max(...validCells) : average;
     setText('avg-pack-temp', average.toFixed(2));
     setText('max-cell-temp', peak.toFixed(2));
     const pumpRpm = Number(frame.fan_rpm ?? frame.pump_rpm);
@@ -162,6 +166,39 @@
     setText('active-fault-alerts', String(faultCount));
     setText('avg-temp', average.toFixed(2));
     setText('max-temp', peak.toFixed(2));
+    const warningThreshold = Number.isFinite(Number(frame.warning_threshold)) ? Number(frame.warning_threshold) : 40;
+    const criticalThreshold = Number.isFinite(Number(frame.alert_threshold)) ? Number(frame.alert_threshold) : 45;
+    let hottestCriticalCell = null;
+    byId('cell-grid-hud')?.querySelectorAll('.cell-card').forEach((cell, index) => {
+      const value = cells[index];
+      const voltage = voltages[index];
+      const status = Number.isFinite(value) && value >= criticalThreshold ? 'critical'
+        : Number.isFinite(value) && value >= warningThreshold ? 'warning' : 'normal';
+      cell.classList.toggle('status-warning', status === 'warning');
+      cell.classList.toggle('status-critical', status === 'critical');
+      cell.classList.toggle('cell-hot', status !== 'normal');
+      cell.style.setProperty('--cell-fill', `${Number.isFinite(value) ? Math.max(0, Math.min(100, ((value - 20) / 30) * 100)) : 0}%`);
+      const temperatureNode = cell.querySelector('.cell-temp-value');
+      const voltageNode = cell.querySelector('.cell-voltage-value');
+      const badge = cell.querySelector('.status-badge');
+      if (temperatureNode) temperatureNode.textContent = Number.isFinite(value) ? value.toFixed(1) : '—';
+      if (voltageNode) voltageNode.textContent = Number.isFinite(voltage) ? voltage.toFixed(3) : '—';
+      if (badge) {
+        badge.classList.remove('normal', 'warning', 'critical');
+        badge.classList.add(status);
+        badge.textContent = status;
+      }
+      cell.setAttribute('aria-label', `Cell #${String(index + 1).padStart(2, '0')}, ${Number.isFinite(value) ? `${value.toFixed(1)} degrees Celsius` : 'temperature unavailable'}, ${Number.isFinite(voltage) ? `${voltage.toFixed(3)} volts` : 'voltage unavailable'}, ${status}`);
+      if (status === 'critical' && (!hottestCriticalCell || value > hottestCriticalCell.temperature)) hottestCriticalCell = { index, temperature: value };
+    });
+    const criticalAlert = Boolean(hottestCriticalCell) || frame.overheat === true || frame.alert === 'overheat';
+    const alertBanner = byId('critical-alert-banner');
+    if (alertBanner) {
+      alertBanner.hidden = !criticalAlert;
+      setText('critical-alert-message', hottestCriticalCell
+        ? `Cell #${String(hottestCriticalCell.index + 1).padStart(2, '0')} reached ${hottestCriticalCell.temperature.toFixed(1)} °C.`
+        : 'The pack reported a high-temperature condition.');
+    }
     setText('sim-time', Number.isFinite(Number(frame.timestamp)) ? Number(frame.timestamp).toFixed(1) : '—');
     setText('scale-reading', `${average.toFixed(2)} °C`);
     const marker = byId('scale-marker');
@@ -177,12 +214,6 @@
     setText('connection-label', 'Live telemetry');
     setText('system-status', 'ONLINE');
     setText('stream-status', 'LIVE STREAM');
-    byId('cell-grid-hud')?.querySelectorAll('.cell-value').forEach((cell, index) => {
-      const value = cells[index];
-      cell.textContent = Number.isFinite(value) ? value.toFixed(1) : '—';
-      cell.classList.toggle('cell-hot', Number.isFinite(value) && value >= 40);
-      cell.setAttribute('aria-label', Number.isFinite(value) ? `Cell ${index + 1}, ${value.toFixed(1)} degrees Celsius` : `Cell ${index + 1} temperature unavailable`);
-    });
     const selectedIndex = Number(byId('cell-grid-hud')?.dataset.selectedIndex);
     if (Number.isInteger(selectedIndex) && selectedIndex >= 0) {
       const selectedValue = cells[selectedIndex];
@@ -293,7 +324,7 @@
         grid.dataset.selectedIndex = cell.dataset.cellIndex;
         grid.querySelectorAll('.cell-value').forEach((item) => item.classList.toggle('selected', item === cell));
         const index = Number(cell.dataset.cellIndex);
-        const value = cell.textContent.trim();
+        const value = cell.querySelector('.cell-temp-value')?.textContent.trim() || '—';
         setText('selected-cell-readout', value === '—' ? `Cell ${index + 1}: temperature unavailable` : `Cell ${index + 1}: ${value} °C`);
       });
     });
