@@ -31,6 +31,12 @@ class RingBuffer {
   toArray(limit = this.size) {
     return this.snapshot(limit);
   }
+
+  clear() {
+    this.frames = new Array(this.capacity);
+    this.nextIndex = 0;
+    this.size = 0;
+  }
 }
 
 module.exports = RingBuffer;
