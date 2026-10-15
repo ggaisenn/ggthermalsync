@@ -1,6 +1,10 @@
+![Engine-in-Action](img/6.avif)
+
 # ggthermalsync
 
 A C++17 thermal physics engine and real-time telemetry pipeline that simulates an EV battery pack's thermal behavior and streams live JSON telemetry to an ingestion backend for dashboard visualization and automated fault handling.
+
+![Home-Page](img/1.avif)
 
 ## Architecture
 
@@ -87,14 +91,20 @@ For a command-line mock stream instead of the C++ engine or dashboard controls, 
 
 ```bash
 node scripts/mock-telemetry-stream.js
+```
+![Normal-Phase](img/2.avif)
+
+```bash
 node scripts/mock-telemetry-stream.js --overheat
 ```
+![Normal-Phase](img/5.avif)
 
 For the end-to-end fault scenario, keep the backend running and stop any other telemetry producer first:
 
 ```bash
 node scripts/chaos-injector.js
 ```
+![Chaos-Injection-Phase](img/3.avif)
 
 ## Setup with Docker Compose
 
