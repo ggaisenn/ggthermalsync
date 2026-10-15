@@ -3,8 +3,8 @@
 
 const net = require('node:net');
 
-const host = process.env.TCP_HOST || '127.0.0.1';
-const port = Number.parseInt(process.env.TCP_PORT || '9001', 10);
+const host = process.env.TELEMETRY_HOST || process.env.TCP_HOST || '127.0.0.1';
+const port = Number.parseInt(process.env.TELEMETRY_PORT || process.env.TCP_PORT || '9001', 10);
 const requestedRate = Number.parseInt(process.env.MOCK_TELEMETRY_HZ || '20', 10);
 const framesPerSecond = Number.isFinite(requestedRate) ? Math.min(60, Math.max(1, requestedRate)) : 20;
 const overheatMode = process.argv.includes('--overheat');

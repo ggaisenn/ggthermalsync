@@ -448,16 +448,18 @@
 
   function resolveBackendHttpOrigin() {
     const configuredOrigin = root.dataset.telemetryBackendOrigin;
+    if (configuredOrigin === 'same-origin') return location.origin;
     if (configuredOrigin) return configuredOrigin.replace(/\/$/, '');
-    const isLocalFrontend = location.protocol === 'file:'
-      || ['localhost', '127.0.0.1'].includes(location.hostname) && location.port !== '8080';
+    if (location.protocol === 'file:') return 'http://localhost:8080';
+    const isLocalFrontend = ['localhost', '127.0.0.1'].includes(location.hostname)
+      && !['80', '3000', '8080'].includes(location.port || '80');
     return isLocalFrontend ? 'http://localhost:8080' : location.origin;
   }
 
   function resolveWebSocketUrl() {
     const backendUrl = new URL(resolveBackendHttpOrigin());
     const protocol = backendUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${backendUrl.host}`;
+    return `${protocol}//${backendUrl.host}/ws`;
   }
 
   async function connectTelemetry() {

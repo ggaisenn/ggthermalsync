@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <netdb.h>
 #include <thread>
 #include <utility>
 
@@ -52,33 +53,42 @@ bool TcpClient::connectWithRetry() {
     if (std::chrono::steady_clock::now() < nextRetry_)
         return false;
 
+    addrinfo hints{};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    addrinfo* addresses = nullptr;
+    const std::string service = std::to_string(port_);
+    if (::getaddrinfo(host_.c_str(), service.c_str(), &hints, &addresses) != 0) {
+        scheduleRetry();
+        return false;
+    }
+
     for (unsigned int attempt = 0; attempt < connectAttempts_; ++attempt) {
-        const int candidate = ::socket(AF_INET, SOCK_STREAM, 0);
-        if (candidate < 0)
-            break;
+        for (const addrinfo* address = addresses; address; address = address->ai_next) {
+            const int candidate = ::socket(address->ai_family, address->ai_socktype, address->ai_protocol);
+            if (candidate < 0)
+                continue;
 
 #if defined(SO_NOSIGPIPE)
-        int noSigPipe = 1;
-        ::setsockopt(candidate, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, sizeof(noSigPipe));
+            int noSigPipe = 1;
+            ::setsockopt(candidate, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, sizeof(noSigPipe));
 #endif
 
-        sockaddr_in address{};
-        address.sin_family = AF_INET;
-        address.sin_port = htons(port_);
-        if (::inet_pton(AF_INET, host_.c_str(), &address.sin_addr) != 1 ||
-            ::connect(candidate, reinterpret_cast<sockaddr*>(&address), sizeof(address)) < 0) {
+            if (::connect(candidate, address->ai_addr, address->ai_addrlen) == 0) {
+                socket_ = candidate;
+                ::freeaddrinfo(addresses);
+                retryDelay_ = std::chrono::milliseconds{250};
+                nextRetry_ = {};
+                return true;
+            }
             ::close(candidate);
-        } else {
-            socket_ = candidate;
-            retryDelay_ = std::chrono::milliseconds{250};
-            nextRetry_ = {};
-            return true;
         }
 
         if (attempt + 1 < connectAttempts_)
             std::this_thread::sleep_for(std::chrono::milliseconds{100});
     }
 
+    ::freeaddrinfo(addresses);
     scheduleRetry();
     return false;
 }

@@ -1,0 +1,52 @@
+services:
+  telemetry-backend:
+    build:
+      context: .
+      dockerfile: telemetry-backend/Dockerfile
+    environment:
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: ${BACKEND_HTTP_PORT:-8080}
+      TCP_HOST: 0.0.0.0
+      TCP_PORT: ${TELEMETRY_TCP_PORT:-9001}
+      TELEMETRY_HOST: 127.0.0.1
+      TELEMETRY_PORT: ${TELEMETRY_TCP_PORT:-9001}
+      HISTORY_CAPACITY: ${HISTORY_CAPACITY:-3600}
+      WS_BROADCAST_EVERY: ${WS_BROADCAST_EVERY:-5}
+      MOCK_TELEMETRY_HZ: ${MOCK_TELEMETRY_HZ:-20}
+      SIMULATION_PROXY_TOKEN: ${SIMULATION_PROXY_TOKEN:?Set SIMULATION_PROXY_TOKEN in .env}
+    ports:
+      - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_HTTP_PORT:-8080}:${BACKEND_HTTP_PORT:-8080}"
+      - "${TELEMETRY_BIND_ADDRESS:-127.0.0.1}:${TELEMETRY_TCP_PORT:-9001}:${TELEMETRY_TCP_PORT:-9001}"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:${BACKEND_HTTP_PORT:-8080}/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  core-engine:
+    build:
+      context: .
+      dockerfile: core-engine/Dockerfile
+    environment:
+      TELEMETRY_HOST: telemetry-backend
+      TELEMETRY_PORT: ${TELEMETRY_TCP_PORT:-9001}
+    depends_on:
+      telemetry-backend:
+        condition: service_healthy
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    ports:
+      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:${DASHBOARD_PORT:-3000}:80"
+    environment:
+      BACKEND_HTTP_PORT: ${BACKEND_HTTP_PORT:-8080}
+      SIMULATION_PROXY_TOKEN: ${SIMULATION_PROXY_TOKEN:?Set SIMULATION_PROXY_TOKEN in .env}
+    depends_on:
+      - telemetry-backend

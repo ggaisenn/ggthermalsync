@@ -41,6 +41,7 @@ function run(command, args, options = {}) {
 }
 
 async function ensureEngineBuilt() {
+  if (process.env.CHAOS_PREBUILT_ENGINE === '1' && fs.existsSync(enginePath)) return;
   if (!fs.existsSync(path.join(buildDir, 'CMakeCache.txt'))) {
     run('cmake', ['-S', 'core-engine', '-B', 'core-engine/build']);
   }

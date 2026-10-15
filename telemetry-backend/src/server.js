@@ -12,6 +12,7 @@ const TCP_HOST = process.env.TCP_HOST || '127.0.0.1';
 const TCP_PORT = Number.parseInt(process.env.TCP_PORT || '9001', 10);
 const HISTORY_CAPACITY = Number.parseInt(process.env.HISTORY_CAPACITY || '3600', 10);
 const WS_BROADCAST_EVERY = parsePositiveInteger(process.env.WS_BROADCAST_EVERY, 5);
+const SIMULATION_PROXY_TOKEN = process.env.SIMULATION_PROXY_TOKEN || '';
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const WARNING_TEMP_C = 45;
 const CRITICAL_TEMP_C = 55;
@@ -50,7 +51,9 @@ app.use('/api/simulation', (request, response, next) => {
   const address = request.socket.remoteAddress || '';
   const isLoopback = address === '::1' || address === '127.0.0.1'
     || address.startsWith('127.') || address.startsWith('::ffff:127.');
-  if (!isLoopback) {
+  const isTrustedDashboardProxy = SIMULATION_PROXY_TOKEN
+    && request.headers['x-simulation-proxy-token'] === SIMULATION_PROXY_TOKEN;
+  if (!isLoopback && !isTrustedDashboardProxy) {
     response.status(403).json({ error: 'Simulation controls are restricted to loopback clients.' });
     return;
   }

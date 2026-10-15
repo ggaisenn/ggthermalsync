@@ -7,6 +7,7 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <cstdlib>
 #include "BatteryCell.h"
 #include "JsonEncoder.h"
 #include "PidController.h"
@@ -116,7 +117,15 @@ int main(int argc, char* argv[]) {
     double simTime = 0.0;
     double heatGen = 5.0;       // Internal heat generation
     PidController controller;
-    TcpClient telemetryClient("127.0.0.1", 9001);
+    const char* telemetryHostEnv = std::getenv("TELEMETRY_HOST");
+    const char* telemetryPortEnv = std::getenv("TELEMETRY_PORT");
+    const std::string telemetryHost = telemetryHostEnv ? telemetryHostEnv : "127.0.0.1";
+    char* parsedPortEnd = nullptr;
+    const long parsedPort = telemetryPortEnv ? std::strtol(telemetryPortEnv, &parsedPortEnd, 10) : 9001;
+    const std::uint16_t telemetryPort = telemetryPortEnv && parsedPortEnd != telemetryPortEnv
+        && *parsedPortEnd == '\0' && parsedPort > 0 && parsedPort <= 65535
+        ? static_cast<std::uint16_t>(parsedPort) : 9001;
+    TcpClient telemetryClient(telemetryHost, telemetryPort);
     bool connectionWarningShown = false;
     bool pumpJammed = false;
     bool safetyOverrideReported = false;
