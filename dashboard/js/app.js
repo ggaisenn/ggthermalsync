@@ -1,9 +1,15 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+window.THREE = THREE;
+window.OrbitControls = OrbitControls;
+
 (() => {
   'use strict';
 
   const root = document.documentElement;
-  const themeToggle = document.querySelector('.theme-toggle');
-  const themeIcon = document.querySelector('.theme-icon');
+  let themeToggle;
+  let themeIcon;
   const isSimulation = Boolean(document.getElementById('page-simulation'));
   const maxPoints = 120;
   const temperatureValues = [];
@@ -17,6 +23,8 @@
   let lastFpsSample = performance.now();
   let lastTelemetryAt = 0;
   let resizeSimulationRenderer = () => {};
+  let routerInitialized = false;
+  const sceneInstances = new Map();
 
   function byId(id) { return document.getElementById(id); }
   function setText(id, text) { const element = byId(id); if (element) element.textContent = text; }
@@ -33,10 +41,14 @@
     refreshChartTheme();
   }
 
-  let savedTheme = 'light';
-  try { savedTheme = localStorage.getItem('ggthermalsync-theme') || 'light'; } catch (_) { /* storage may be disabled */ }
-  setTheme(savedTheme === 'dark' ? 'dark' : 'light');
-  themeToggle?.addEventListener('click', () => setTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'));
+  function initTheme() {
+    themeToggle = document.querySelector('.theme-toggle');
+    themeIcon = document.querySelector('.theme-icon');
+    let savedTheme = 'light';
+    try { savedTheme = localStorage.getItem('ggthermalsync-theme') || 'light'; } catch (_) { /* storage may be disabled */ }
+    setTheme(savedTheme === 'dark' ? 'dark' : 'light');
+    themeToggle?.addEventListener('click', () => setTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'));
+  }
 
   function chartOptions(kind) {
     const dark = root.dataset.theme === 'dark';
@@ -71,6 +83,8 @@
 
   function createCharts() {
     if (!isSimulation || !window.Chart) return;
+    if (temperatureChart && coolingChart) return { temperatureChart, coolingChart };
+    if (!byId('chart-canvas') || !byId('cooling-chart')) return;
     temperatureChart = new Chart(byId('chart-canvas'), {
       type: 'line',
       data: { labels: [], datasets: [
@@ -86,6 +100,7 @@
       ] },
       options: chartOptions('cooling'),
     });
+    return { temperatureChart, coolingChart };
   }
 
   function refreshChartTheme() {
@@ -272,8 +287,9 @@
   }
 
   function initScene(canvasId) {
+    if (sceneInstances.has(canvasId)) return sceneInstances.get(canvasId);
     const canvas = byId(canvasId);
-    if (!canvas || !window.THREE) return;
+    if (!canvas || !window.THREE || !window.OrbitControls) return;
     try {
       const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -281,6 +297,9 @@
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(38, 1, .1, 100);
       camera.position.set(0, 0, 8);
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.update();
       const parent = canvas.parentElement;
       const resize = () => {
         const bounds = parent.getBoundingClientRect();
@@ -293,6 +312,8 @@
         resizeSimulationRenderer = resize;
         window.addEventListener('simulation-view-shown', resize);
       }
+      const instance = { renderer, scene, camera, controls, resize };
+      sceneInstances.set(canvasId, instance);
       new ResizeObserver(resize).observe(parent);
       resize();
       const render = (now) => {
@@ -301,6 +322,7 @@
           requestAnimationFrame(render);
           return;
         }
+        controls.update();
         renderer.render(scene, camera);
         if (canvasId === 'simulation-canvas') {
           frameCount += 1;
@@ -313,6 +335,7 @@
         requestAnimationFrame(render);
       };
       requestAnimationFrame(render);
+      return instance;
     } catch (_) { /* The placeholder remains when WebGL is not available. */ }
   }
 
@@ -363,9 +386,11 @@
   }
 
   function initPageNavigation() {
+    if (routerInitialized) return;
     const home = byId('page-home');
     const simulation = byId('page-simulation');
     if (!home || !simulation) return;
+    routerInitialized = true;
     const navLinks = [...document.querySelectorAll('[data-target-page]')];
     function showPage(target) {
       const targetId = target === 'simulation' || target === 'page-simulation' ? 'page-simulation' : 'page-home';
@@ -406,13 +431,56 @@
     addEventListener('hashchange', () => showPage(location.hash === '#simulation' ? 'page-simulation' : 'page-home'));
   }
 
-  if (isSimulation) {
-    createCharts();
-    initPanels();
-    initCellGrid();
-    initScene('simulation-canvas');
-    connectTelemetry();
+  function validateMountTargets() {
+    const targets = ['threejs-container', 'telemetry-chart-container', 'cell-grid-hud'];
+    const missing = targets.filter((id) => !byId(id));
+    if (missing.length) console.error(`[ThermaSync] Missing required dashboard mount point(s): ${missing.map((id) => `#${id}`).join(', ')}`);
+    return missing.length === 0;
   }
-  initPageNavigation();
-  initScene('preview-canvas');
+
+  let shaderMapper = null;
+  function registerShaderMapper(mapper) {
+    if (typeof mapper !== 'function') throw new TypeError('Shader mapper must be a function.');
+    shaderMapper = mapper;
+    return () => { if (shaderMapper === mapper) shaderMapper = null; };
+  }
+
+  function bootstrap() {
+    if (window.ThermaSync.initialized) return;
+    window.ThermaSync.initialized = true;
+    const targetsReady = validateMountTargets();
+    initTheme();
+    initPageNavigation();
+    if (isSimulation) {
+      initPanels();
+      initCellGrid();
+      if (targetsReady && window.Chart) createCharts();
+      if (byId('threejs-container')) initScene('simulation-canvas');
+      connectTelemetry();
+    }
+    if (byId('preview-threejs-container')) initScene('preview-canvas');
+    document.dispatchEvent(new CustomEvent('thermasync:ready', { detail: { targetsReady } }));
+  }
+
+  window.ThermaSync = window.ThermaSync || {};
+  Object.assign(window.ThermaSync, {
+    initialized: false,
+    validateMountTargets,
+    router: { initialize: initPageNavigation },
+    scene: { initialize: initScene, resize: () => window.dispatchEvent(new Event('simulation-view-shown')) },
+    shader: { registerMapper, getMapper: () => shaderMapper },
+    charts: { initialize: createCharts, refreshTheme: refreshChartTheme },
+    hooks: {
+      initializeScene: initScene,
+      registerShaderMapper,
+      initializeLiveCharts: createCharts,
+    },
+    initialize: bootstrap,
+  });
+
+  if (document.readyState === 'complete') {
+    bootstrap();
+  } else {
+    document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
+  }
 })();
