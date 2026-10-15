@@ -121,6 +121,14 @@ npm install
 npm start
 ```
 
+To exercise the dashboard without the C++ engine, start the mock stream from the repository root in another terminal:
+
+```bash
+node scripts/mock-telemetry-stream.js
+```
+
+Use `node scripts/mock-telemetry-stream.js --overheat` to trigger the thermal warning path. Set `MOCK_TELEMETRY_HZ` to change its rate (1–60 Hz).
+
 Connect a WebSocket client from another terminal:
 
 ```bash

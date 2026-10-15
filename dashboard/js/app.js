@@ -11,9 +11,8 @@ window.OrbitControls = OrbitControls;
   let themeToggle;
   let themeIcon;
   const isSimulation = Boolean(document.getElementById('page-simulation'));
-  const maxPoints = 120;
-  const temperatureValues = [];
-  const coolingValues = [];
+  const chartWindowSeconds = 60;
+  let latestChartTimestamp = null;
   const thermalColorStops = [
     { temperature: 20, color: new THREE.Color('#3b82f6') },
     { temperature: 35, color: new THREE.Color('#10b981') },
@@ -99,7 +98,25 @@ window.OrbitControls = OrbitControls;
         },
       },
       scales: {
-        x: { display: false, grid: { display: false }, border: { display: false } },
+        x: {
+          type: 'linear',
+          min: latestChartTimestamp === null ? 0 : latestChartTimestamp - chartWindowSeconds,
+          max: latestChartTimestamp === null ? chartWindowSeconds : latestChartTimestamp,
+          grid: { display: false },
+          border: { display: false },
+          ticks: {
+            color,
+            maxTicksLimit: 4,
+            maxRotation: 0,
+            padding: 2,
+            font: { family: 'IBM Plex Mono, monospace', size: 7 },
+            callback: (value) => {
+              if (latestChartTimestamp === null) return '';
+              const offset = Math.round(Number(value) - latestChartTimestamp);
+              return offset === 0 ? 'now' : `${offset}s`;
+            },
+          },
+        },
         y: {
           min: kind === 'cooling' ? 0 : 20,
           max: kind === 'cooling' ? 100 : 50,
@@ -117,16 +134,16 @@ window.OrbitControls = OrbitControls;
     if (!byId('chart-canvas') || !byId('cooling-chart')) return;
     temperatureChart = new Chart(byId('chart-canvas'), {
       type: 'line',
-      data: { labels: [], datasets: [
-        { label: 'Average temperature', data: temperatureValues, borderColor: '#1f4fd1', backgroundColor: 'rgba(31,79,209,.12)', borderWidth: 1.8, pointRadius: 0, pointHoverRadius: 3, fill: true, tension: .32 },
+      data: { datasets: [
+        { label: 'Average pack temperature', data: [], parsing: false, borderColor: '#1f4fd1', backgroundColor: 'rgba(31,79,209,.12)', borderWidth: 1.8, pointRadius: 0, pointHoverRadius: 3, fill: true, tension: .32 },
         { label: '35 °C setpoint', data: [], borderColor: '#737e8d', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, fill: false },
       ] },
       options: chartOptions('temperature'),
     });
     coolingChart = new Chart(byId('cooling-chart'), {
       type: 'line',
-      data: { labels: [], datasets: [
-        { label: 'Cooling output', data: coolingValues, borderColor: '#cf7b38', backgroundColor: 'rgba(207,123,56,.12)', borderWidth: 1.8, pointRadius: 0, pointHoverRadius: 3, fill: true, tension: .32 },
+      data: { datasets: [
+        { label: 'PID fan speed', data: [], parsing: false, borderColor: '#cf7b38', backgroundColor: 'rgba(207,123,56,.12)', borderWidth: 1.8, pointRadius: 0, pointHoverRadius: 3, fill: true, tension: .32 },
       ] },
       options: chartOptions('cooling'),
     });
@@ -144,17 +161,24 @@ window.OrbitControls = OrbitControls;
   function appendFrameToCharts(frame) {
     if (!temperatureChart || !coolingChart) return;
     const timestamp = Number.isFinite(Number(frame.timestamp)) ? Number(frame.timestamp) : Date.now() / 1000;
-    const timeLabel = `${Math.floor(timestamp / 60).toString().padStart(2, '0')}:${Math.floor(timestamp % 60).toString().padStart(2, '0')}`;
-    temperatureChart.data.labels.push(timeLabel);
-    temperatureChart.data.datasets[0].data.push(frame.temp_avg);
-    temperatureChart.data.datasets[1].data.push(35);
-    coolingChart.data.labels.push(timeLabel);
-    coolingChart.data.datasets[0].data.push(frame.fan_speed);
-    while (temperatureChart.data.labels.length > maxPoints) {
-      temperatureChart.data.labels.shift();
-      temperatureChart.data.datasets.forEach((dataset) => dataset.data.shift());
-      coolingChart.data.labels.shift();
-      coolingChart.data.datasets[0].data.shift();
+    if (latestChartTimestamp !== null && timestamp < latestChartTimestamp) {
+      temperatureChart.data.datasets.forEach((dataset) => { dataset.data = []; });
+      coolingChart.data.datasets.forEach((dataset) => { dataset.data = []; });
+    }
+    latestChartTimestamp = timestamp;
+    const cutoff = latestChartTimestamp - chartWindowSeconds;
+    temperatureChart.data.datasets[0].data.push({ x: timestamp, y: Number(frame.temp_avg) });
+    temperatureChart.data.datasets[1].data.push({ x: timestamp, y: 35 });
+    coolingChart.data.datasets[0].data.push({ x: timestamp, y: Number(frame.fan_speed) });
+    temperatureChart.data.datasets.forEach((dataset) => {
+      dataset.data = dataset.data.filter((point) => point.x >= cutoff);
+    });
+    coolingChart.data.datasets.forEach((dataset) => {
+      dataset.data = dataset.data.filter((point) => point.x >= cutoff);
+    });
+    for (const chart of [temperatureChart, coolingChart]) {
+      chart.options.scales.x.min = cutoff;
+      chart.options.scales.x.max = latestChartTimestamp;
     }
     temperatureChart.update('none');
     coolingChart.update('none');
