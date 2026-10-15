@@ -18,6 +18,14 @@ const httpServer = http.createServer(app);
 const webSocketServer = new WebSocketServer({ server: httpServer });
 let framesSinceBroadcast = 0;
 
+webSocketServer.on('connection', (client) => {
+  // Seed new dashboards immediately; they should not wait for the next downsample tick.
+  const latestFrame = history.snapshot(1)[0];
+  if (latestFrame && client.readyState === WebSocket.OPEN) {
+    client.send(JSON.stringify(latestFrame));
+  }
+});
+
 function parsePositiveInteger(value, fallback) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;

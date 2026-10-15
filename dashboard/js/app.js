@@ -1,9 +1,3 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-window.THREE = THREE;
-window.OrbitControls = OrbitControls;
-
 (() => {
   'use strict';
 
@@ -12,11 +6,14 @@ window.OrbitControls = OrbitControls;
   let themeIcon;
   const isSimulation = Boolean(document.getElementById('page-simulation'));
   const chartWindowSeconds = 60;
+  let THREE = null;
+  let OrbitControls = null;
+  let threeDependencyPromise = null;
   let latestChartTimestamp = null;
   const thermalColorStops = [
-    { temperature: 20, color: new THREE.Color('#3b82f6') },
-    { temperature: 35, color: new THREE.Color('#10b981') },
-    { temperature: 50, color: new THREE.Color('#ef4444') },
+    { temperature: 20, color: '#3b82f6' },
+    { temperature: 35, color: '#10b981' },
+    { temperature: 50, color: '#ef4444' },
   ];
   let temperatureChart;
   let coolingChart;
@@ -33,21 +30,43 @@ window.OrbitControls = OrbitControls;
   function byId(id) { return document.getElementById(id); }
   function setText(id, text) { const element = byId(id); if (element) element.textContent = text; }
 
-  function thermalColorForTemperature(temperature, target = new THREE.Color()) {
-    if (!Number.isFinite(Number(temperature))) return target.set('#7891a2');
+  function thermalColorForTemperature(temperature, target) {
+    if (!THREE) return null;
+    const colorTarget = target || new THREE.Color();
+    if (!Number.isFinite(Number(temperature))) return colorTarget.set('#7891a2');
     const value = Number(temperature);
-    if (value <= thermalColorStops[0].temperature) return target.copy(thermalColorStops[0].color);
+    if (value <= thermalColorStops[0].temperature) return colorTarget.set(thermalColorStops[0].color);
     const last = thermalColorStops[thermalColorStops.length - 1];
-    if (value >= last.temperature) return target.copy(last.color);
+    if (value >= last.temperature) return colorTarget.set(last.color);
     for (let index = 0; index < thermalColorStops.length - 1; index += 1) {
       const lower = thermalColorStops[index];
       const upper = thermalColorStops[index + 1];
       if (value <= upper.temperature) {
         const blend = (value - lower.temperature) / (upper.temperature - lower.temperature);
-        return target.copy(lower.color).lerp(upper.color, blend);
+        return colorTarget.set(lower.color).lerp(new THREE.Color(upper.color), blend);
       }
     }
-    return target.copy(last.color);
+    return colorTarget.set(last.color);
+  }
+
+  function loadThreeDependencies() {
+    if (THREE && OrbitControls) return Promise.resolve(true);
+    if (!threeDependencyPromise) {
+      threeDependencyPromise = Promise.all([
+        import('three'),
+        import('three/addons/controls/OrbitControls.js'),
+      ]).then(([threeModule, controlsModule]) => {
+        THREE = threeModule;
+        OrbitControls = controlsModule.OrbitControls;
+        window.THREE = THREE;
+        window.OrbitControls = OrbitControls;
+        return true;
+      }).catch(() => {
+        threeDependencyPromise = null;
+        return false;
+      });
+    }
+    return threeDependencyPromise;
   }
 
   function setHoverTooltipReading(instance, cellIndex) {
@@ -161,15 +180,24 @@ window.OrbitControls = OrbitControls;
   function appendFrameToCharts(frame) {
     if (!temperatureChart || !coolingChart) return;
     const timestamp = Number.isFinite(Number(frame.timestamp)) ? Number(frame.timestamp) : Date.now() / 1000;
-    if (latestChartTimestamp !== null && timestamp < latestChartTimestamp) {
-      temperatureChart.data.datasets.forEach((dataset) => { dataset.data = []; });
-      coolingChart.data.datasets.forEach((dataset) => { dataset.data = []; });
+    const average = Number(frame.temp_avg);
+    const fan = Number(frame.fan_speed);
+    if (!Number.isFinite(average) || !Number.isFinite(fan)) return;
+    // Ignore stale/out-of-order frames so a reconnect cannot rewind or clear the chart.
+    if (latestChartTimestamp !== null && timestamp < latestChartTimestamp) return;
+    if (latestChartTimestamp !== null && timestamp === latestChartTimestamp) {
+      temperatureChart.data.datasets[0].data.at(-1).y = average;
+      temperatureChart.data.datasets[1].data.at(-1).y = 35;
+      coolingChart.data.datasets[0].data.at(-1).y = fan;
+      temperatureChart.update('none');
+      coolingChart.update('none');
+      return;
     }
     latestChartTimestamp = timestamp;
     const cutoff = latestChartTimestamp - chartWindowSeconds;
-    temperatureChart.data.datasets[0].data.push({ x: timestamp, y: Number(frame.temp_avg) });
+    temperatureChart.data.datasets[0].data.push({ x: timestamp, y: average });
     temperatureChart.data.datasets[1].data.push({ x: timestamp, y: 35 });
-    coolingChart.data.datasets[0].data.push({ x: timestamp, y: Number(frame.fan_speed) });
+    coolingChart.data.datasets[0].data.push({ x: timestamp, y: fan });
     temperatureChart.data.datasets.forEach((dataset) => {
       dataset.data = dataset.data.filter((point) => point.x >= cutoff);
     });
@@ -211,7 +239,7 @@ window.OrbitControls = OrbitControls;
     stack.append(card);
   }
 
-  function updateFrame(frame) {
+  function updateFrame(frame, { appendChart = true, historical = false } = {}) {
     if (!frame || !Number.isFinite(Number(frame.temp_avg)) || !Number.isFinite(Number(frame.fan_speed))) return;
     const average = Number(frame.temp_avg);
     const fan = Number(frame.fan_speed);
@@ -291,39 +319,54 @@ window.OrbitControls = OrbitControls;
     if (frame.overheat === true || frame.alert === 'overheat' || (Number.isFinite(threshold) && peak >= threshold)) {
       addWarning(`Cell temperature ${peak.toFixed(1)} °C crossed the alert threshold.`, peak.toFixed(1));
     }
-    lastTelemetryAt = Date.now();
-    const dot = byId('connection-dot');
-    dot?.classList.add('connected');
-    dot?.classList.remove('disconnected');
-    setText('connection-label', 'Live telemetry');
-    setText('system-status', 'ONLINE');
-    setText('stream-status', 'LIVE STREAM');
+    if (!historical) {
+      lastTelemetryAt = Date.now();
+      const dot = byId('connection-dot');
+      dot?.classList.add('connected');
+      dot?.classList.remove('disconnected');
+      setText('connection-label', 'Live telemetry');
+      setText('system-status', 'ONLINE');
+      setText('stream-status', 'LIVE STREAM');
+    }
     const selectedIndex = Number(byId('cell-grid-hud')?.dataset.selectedIndex);
     if (Number.isInteger(selectedIndex) && selectedIndex >= 0) {
       const selectedValue = cells[selectedIndex];
       setText('selected-cell-readout', Number.isFinite(selectedValue) ? `Cell ${selectedIndex + 1}: ${selectedValue.toFixed(1)} °C` : `Cell ${selectedIndex + 1}: temperature unavailable`);
     }
-    appendFrameToCharts({ ...frame, temp_avg: average, fan_speed: fan });
+    if (appendChart) appendFrameToCharts({ ...frame, temp_avg: average, fan_speed: fan });
   }
 
   async function loadHistory() {
     try {
-      const response = await fetch('/api/history?timeframe=60', { cache: 'no-store' });
-      if (!response.ok) return;
+      const historyUrl = location.protocol === 'file:'
+        ? 'http://127.0.0.1:8080/api/history?timeframe=60'
+        : '/api/history?timeframe=60';
+      const response = await fetch(historyUrl, { cache: 'no-store', signal: AbortSignal.timeout(1500) });
+      if (!response.ok) return [];
       const result = await response.json();
-      if (Array.isArray(result.frames)) result.frames.forEach(updateFrame);
-    } catch (_) { /* websocket state remains visible if history is unavailable */ }
+      if (!Array.isArray(result.frames)) return [];
+      const frames = result.frames
+        .filter((frame) => frame && Number.isFinite(Number(frame.timestamp)))
+        .sort((left, right) => Number(left.timestamp) - Number(right.timestamp));
+      // Seed both rolling charts before the live socket is opened. The endpoint returns
+      // ring-buffer frames in chronological order; sorting also tolerates older servers.
+      frames.forEach((frame) => appendFrameToCharts(frame));
+      if (frames.length) updateFrame(frames[frames.length - 1], { appendChart: false, historical: true });
+      return frames;
+    } catch (_) { return []; /* continue to live telemetry if history is unavailable */ }
   }
 
   function resolveWebSocketUrl() {
     if (location.protocol === 'http:' || location.protocol === 'https:') return `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;
-    return 'ws://localhost:8080';
+    return 'ws://127.0.0.1:8080';
   }
 
-  function connectTelemetry() {
+  async function connectTelemetry() {
     clearTimeout(reconnectTimer);
     const dot = byId('connection-dot');
     dot?.classList.remove('connected', 'disconnected');
+    setText('connection-label', 'Loading recent telemetry');
+    await loadHistory();
     setText('connection-label', 'Connecting to telemetry');
     try {
       socket = new WebSocket(resolveWebSocketUrl());
@@ -331,7 +374,6 @@ window.OrbitControls = OrbitControls;
         reconnectDelay = 1000;
         setText('system-status', 'ONLINE');
         setText('connection-label', 'Connected · waiting for frames');
-        loadHistory();
       });
       socket.addEventListener('message', (event) => {
         try { updateFrame(JSON.parse(event.data)); } catch (_) { /* ignore malformed frames */ }
@@ -355,10 +397,11 @@ window.OrbitControls = OrbitControls;
     }
   }
 
-  function initScene(canvasId) {
+  async function initScene(canvasId) {
     if (sceneInstances.has(canvasId)) return sceneInstances.get(canvasId);
     const canvas = byId(canvasId);
-    if (!canvas || !window.THREE || !window.OrbitControls) return;
+    if (!canvas || !await loadThreeDependencies()) return;
+    if (sceneInstances.has(canvasId)) return sceneInstances.get(canvasId);
     try {
       const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
