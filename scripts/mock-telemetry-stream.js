@@ -50,8 +50,9 @@ function sendFrame() {
     fan_speed,
     fan_rpm: Math.round(fan_speed * 48),
     cell_temps,
-    alert_threshold: 50,
-    overheat: peak >= 50,
+    warning_threshold: 45,
+    critical_threshold: 55,
+    overheat: peak >= 55,
   };
 
   socket.write(`${JSON.stringify(frame)}\n`);

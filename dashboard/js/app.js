@@ -6,6 +6,8 @@
   let themeIcon;
   const isSimulation = Boolean(document.getElementById('page-simulation'));
   const chartWindowSeconds = 60;
+  const DEFAULT_WARNING_TEMP_C = 45;
+  const DEFAULT_CRITICAL_TEMP_C = 55;
   let THREE = null;
   let OrbitControls = null;
   let threeDependencyPromise = null;
@@ -212,31 +214,38 @@
     coolingChart.update('none');
   }
 
-  function addWarning(message, peak) {
+  function addWarning(message, severity = 'warning') {
     const stack = byId('warning-stack');
-    if (!stack || stack.querySelector(`[data-warning="${peak}"]`)) return;
-    const card = document.createElement('div');
-    card.className = 'warning-card';
-    card.dataset.warning = String(peak);
-    const mark = document.createElement('span');
-    mark.className = 'warning-mark';
-    mark.setAttribute('aria-hidden', 'true');
-    mark.textContent = '!';
-    const copy = document.createElement('span');
-    copy.className = 'warning-copy';
-    const title = document.createElement('strong');
-    title.textContent = 'Overheat warning';
-    const detail = document.createElement('span');
-    detail.textContent = message;
-    copy.append(title, detail);
-    const dismiss = document.createElement('button');
-    dismiss.className = 'warning-dismiss';
-    dismiss.type = 'button';
-    dismiss.setAttribute('aria-label', 'Dismiss warning');
-    dismiss.textContent = '×';
-    dismiss.addEventListener('click', () => card.remove());
-    card.append(mark, copy, dismiss);
-    stack.append(card);
+    if (!stack) return;
+    stack.querySelectorAll('[data-warning]').forEach((existing) => {
+      if (existing.dataset.warning !== severity) existing.remove();
+    });
+    let card = stack.querySelector(`[data-warning="${severity}"]`);
+    if (!card) {
+      card = document.createElement('div');
+      card.dataset.warning = severity;
+      const mark = document.createElement('span');
+      mark.className = 'warning-mark';
+      mark.setAttribute('aria-hidden', 'true');
+      mark.textContent = '!';
+      const copy = document.createElement('span');
+      copy.className = 'warning-copy';
+      const title = document.createElement('strong');
+      title.textContent = severity === 'critical' ? 'Critical pack temperature' : 'Pack temperature warning';
+      const detail = document.createElement('span');
+      const dismiss = document.createElement('button');
+      dismiss.className = 'warning-dismiss';
+      dismiss.type = 'button';
+      dismiss.setAttribute('aria-label', 'Dismiss warning');
+      dismiss.textContent = '×';
+      dismiss.addEventListener('click', () => card.remove());
+      copy.append(title, detail);
+      card.append(mark, copy, dismiss);
+      stack.append(card);
+    }
+    card.className = `warning-card ${severity}`;
+    const detail = card.querySelector('.warning-copy span');
+    if (detail) detail.textContent = message;
   }
 
   function updateFrame(frame, { appendChart = true, historical = false } = {}) {
@@ -274,13 +283,14 @@
         ? frame.active_faults.length
         : Number.isFinite(Number(frame.active_faults))
           ? Number(frame.active_faults)
-          : (frame.overheat === true || frame.alert === true || frame.alert === 'overheat' ? 1 : 0);
+          : (frame.overheat === true || frame.alert === true || frame.alert === 'overheat' || frame.alert === 'critical' ? 1 : 0);
     setText('active-fault-alerts', String(faultCount));
     setText('avg-temp', average.toFixed(2));
     setText('max-temp', peak.toFixed(2));
-    const warningThreshold = Number.isFinite(Number(frame.warning_threshold)) ? Number(frame.warning_threshold) : 40;
-    const criticalThreshold = Number.isFinite(Number(frame.alert_threshold)) ? Number(frame.alert_threshold) : 45;
+    const warningThreshold = Number.isFinite(Number(frame.warning_threshold)) ? Number(frame.warning_threshold) : DEFAULT_WARNING_TEMP_C;
+    const criticalThreshold = Number.isFinite(Number(frame.critical_threshold)) ? Number(frame.critical_threshold) : DEFAULT_CRITICAL_TEMP_C;
     let hottestCriticalCell = null;
+    let hottestWarningCell = null;
     byId('cell-grid-hud')?.querySelectorAll('.cell-card').forEach((cell, index) => {
       const value = cells[index];
       const voltage = voltages[index];
@@ -302,22 +312,42 @@
       }
       cell.setAttribute('aria-label', `Cell #${String(index + 1).padStart(2, '0')}, ${Number.isFinite(value) ? `${value.toFixed(1)} degrees Celsius` : 'temperature unavailable'}, ${Number.isFinite(voltage) ? `${voltage.toFixed(3)} volts` : 'voltage unavailable'}, ${status}`);
       if (status === 'critical' && (!hottestCriticalCell || value > hottestCriticalCell.temperature)) hottestCriticalCell = { index, temperature: value };
+      if (status !== 'normal' && (!hottestWarningCell || value > hottestWarningCell.temperature)) hottestWarningCell = { index, temperature: value };
     });
-    const criticalAlert = Boolean(hottestCriticalCell) || frame.overheat === true || frame.alert === 'overheat';
+    const criticalCondition = Boolean(hottestCriticalCell) || frame.overheat === true || frame.alert === 'overheat' || frame.alert === 'critical';
+    const warningCondition = Boolean(hottestWarningCell) || frame.alert === 'warning' || frame.alert === true || faultCount > 0;
+    const packStatus = criticalCondition ? 'critical' : warningCondition ? 'warning' : 'normal';
+    const packStatusIndicator = byId('pack-status-indicator');
+    if (packStatusIndicator) {
+      packStatusIndicator.classList.remove('normal', 'warning', 'critical');
+      packStatusIndicator.classList.add(packStatus);
+      packStatusIndicator.setAttribute('aria-label', `Pack status ${packStatus}. Warning at ${warningThreshold} degrees Celsius; critical at ${criticalThreshold} degrees Celsius.`);
+    }
+    setText('pack-status-label', packStatus.toUpperCase());
+    byId('page-simulation')?.setAttribute('data-pack-status', packStatus);
     const alertBanner = byId('critical-alert-banner');
     if (alertBanner) {
-      alertBanner.hidden = !criticalAlert;
-      setText('critical-alert-message', hottestCriticalCell
-        ? `Cell #${String(hottestCriticalCell.index + 1).padStart(2, '0')} reached ${hottestCriticalCell.temperature.toFixed(1)} °C.`
-        : 'The pack reported a high-temperature condition.');
+      alertBanner.hidden = packStatus === 'normal';
+      alertBanner.classList.toggle('warning', packStatus === 'warning');
+      alertBanner.classList.toggle('critical', packStatus === 'critical');
+      setText('critical-alert-title', packStatus === 'critical' ? 'CRITICAL PACK TEMPERATURE' : 'PACK TEMPERATURE WARNING');
+      const alertCell = hottestCriticalCell || hottestWarningCell;
+      setText('critical-alert-message', alertCell
+        ? `Cell #${String(alertCell.index + 1).padStart(2, '0')} reached ${alertCell.temperature.toFixed(1)} °C.`
+        : 'The pack reported an active fault condition.');
     }
     setText('sim-time', Number.isFinite(Number(frame.timestamp)) ? Number(frame.timestamp).toFixed(1) : '—');
     setText('scale-reading', `${average.toFixed(2)} °C`);
     const marker = byId('scale-marker');
     if (marker) marker.style.left = `${Math.max(0, Math.min(100, ((average - 20) / 30) * 100))}%`;
-    const threshold = Number(frame.alert_threshold);
-    if (frame.overheat === true || frame.alert === 'overheat' || (Number.isFinite(threshold) && peak >= threshold)) {
-      addWarning(`Cell temperature ${peak.toFixed(1)} °C crossed the alert threshold.`, peak.toFixed(1));
+    if (packStatus !== 'normal') {
+      const severity = packStatus === 'critical' ? 'critical' : 'warning';
+      const alertCell = hottestCriticalCell || hottestWarningCell;
+      addWarning(alertCell
+        ? `Cell #${String(alertCell.index + 1).padStart(2, '0')} is at ${alertCell.temperature.toFixed(1)} °C.`
+        : 'The pack reported an active fault condition.', severity);
+    } else {
+      byId('warning-stack')?.querySelectorAll('[data-warning]').forEach((warning) => warning.remove());
     }
     if (!historical) {
       lastTelemetryAt = Date.now();
