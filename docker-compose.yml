@@ -29,6 +29,8 @@ services:
       start_period: 5s
 
   core-engine:
+    profiles:
+      - engine
     build:
       context: .
       dockerfile: core-engine/Dockerfile

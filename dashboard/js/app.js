@@ -874,6 +874,13 @@
         showPage(link.dataset.targetPage);
       } else if (event.target.closest('[data-open-simulation]')) {
         showPage('page-simulation');
+      } else if (event.target.closest('button[data-href], button[href]')) {
+        const btn = event.target.closest('button[data-href], button[href]');
+        const url = btn.dataset.href || btn.getAttribute('href');
+        if (url) {
+          event.preventDefault();
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
       }
     });
     showPage(location.hash === '#simulation' ? 'page-simulation' : 'page-home');

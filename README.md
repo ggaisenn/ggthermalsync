@@ -117,7 +117,7 @@ docker compose up --build
 
 Open [http://localhost:3000](http://localhost:3000). Compose starts the dashboard, backend, and a finite core-engine simulation.
 
-Use the dashboard controls to start a normal or overheat mock cycle, or a chaos injection after the initial engine run has completed.
+Use the dashboard controls to choose a scenario (Normal or Overheat) and click **▶ Start**, or trigger a **⚡ Chaos** injection. To run the standalone C++ core-engine container via Compose, use `docker compose run --rm core-engine` or `docker compose --profile engine up --build`.
 
 Stop the stack with **Ctrl+C** when running in the foreground, or use `docker compose down` from another terminal. 
 
