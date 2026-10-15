@@ -139,11 +139,16 @@ html[data-theme="dark"] .button-primary { color: #171b20; background: #eef2f8; b
 html[data-theme="dark"] .simulation-shell { background: radial-gradient(ellipse at 51% 48%,#29333e 0%,#1c252f 52%,#151b22 100%); }
 .scene-backdrop { position: absolute; inset: 0; }
 .threejs-mount { position: absolute; inset: 0; }
+.threejs-mount.has-3d-scene + .scene-placeholder,.threejs-mount.has-3d-scene + .preview-placeholder { display: none; }
 #simulation-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .scene-placeholder { position: absolute; inset: 0; color: var(--quiet); }
 .scene-placeholder strong { color: var(--muted); font: 500 13px var(--mono); }
 .scene-placeholder>span:last-child { max-width: 270px; font-size: 11px; }
 .scene-placeholder .preview-orbit { width: 66px; height: 66px; opacity: .72; }
+.cell-hover-tooltip { position: absolute; z-index: 15; min-width: 112px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--glass-line); border-radius: 7px; color: var(--text); background: var(--glass); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: var(--glass-shadow); pointer-events: none; }
+.cell-hover-tooltip[hidden] { display: none; }
+.cell-hover-tooltip strong { font: 600 9px var(--mono); }
+.cell-hover-tooltip span { color: var(--muted); font: 9px var(--mono); font-variant-numeric: tabular-nums; }
 .glass-panel { color: var(--text); background: var(--glass); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--glass-line); box-shadow: var(--glass-shadow); }
 .simulation-nav { position: absolute; z-index: 10; top: 19px; left: 50%; transform: translateX(-50%); min-height: 50px; padding: 0 18px; display: flex; align-items: center; gap: 24px; border-radius: 999px; white-space: nowrap; }
 .nav-brand { font: 600 14px var(--mono); letter-spacing: -.04em; }

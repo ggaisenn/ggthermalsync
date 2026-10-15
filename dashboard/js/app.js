@@ -14,6 +14,11 @@ window.OrbitControls = OrbitControls;
   const maxPoints = 120;
   const temperatureValues = [];
   const coolingValues = [];
+  const thermalColorStops = [
+    { temperature: 20, color: new THREE.Color('#3b82f6') },
+    { temperature: 35, color: new THREE.Color('#10b981') },
+    { temperature: 50, color: new THREE.Color('#ef4444') },
+  ];
   let temperatureChart;
   let coolingChart;
   let socket;
@@ -28,6 +33,31 @@ window.OrbitControls = OrbitControls;
 
   function byId(id) { return document.getElementById(id); }
   function setText(id, text) { const element = byId(id); if (element) element.textContent = text; }
+
+  function thermalColorForTemperature(temperature, target = new THREE.Color()) {
+    if (!Number.isFinite(Number(temperature))) return target.set('#7891a2');
+    const value = Number(temperature);
+    if (value <= thermalColorStops[0].temperature) return target.copy(thermalColorStops[0].color);
+    const last = thermalColorStops[thermalColorStops.length - 1];
+    if (value >= last.temperature) return target.copy(last.color);
+    for (let index = 0; index < thermalColorStops.length - 1; index += 1) {
+      const lower = thermalColorStops[index];
+      const upper = thermalColorStops[index + 1];
+      if (value <= upper.temperature) {
+        const blend = (value - lower.temperature) / (upper.temperature - lower.temperature);
+        return target.copy(lower.color).lerp(upper.color, blend);
+      }
+    }
+    return target.copy(last.color);
+  }
+
+  function setHoverTooltipReading(instance, cellIndex) {
+    const cell = instance.cells[cellIndex];
+    if (!cell || !instance.tooltip) return;
+    const cellId = String(cellIndex + 1).padStart(2, '0');
+    setText('cell-hover-id', `Cell #${cellId}`);
+    setText('cell-hover-temperature', Number.isFinite(cell.userData.temperature) ? `${cell.userData.temperature.toFixed(1)} °C` : 'Temperature unavailable');
+  }
 
   function setTheme(theme) {
     root.dataset.theme = theme;
@@ -167,6 +197,21 @@ window.OrbitControls = OrbitControls;
         : Array.isArray(frame.voltages) ? frame.voltages.map((value) => Number.isFinite(Number(value)) ? Number(value) : NaN) : [];
     const validCells = cells.filter(Number.isFinite);
     const peak = validCells.length ? Math.max(...validCells) : average;
+    sceneInstances.forEach((instance) => {
+      instance.cells.forEach((mesh, index) => {
+        const temperature = cells[index];
+        mesh.userData.temperature = Number.isFinite(temperature) ? temperature : NaN;
+        if (Number.isFinite(temperature)) {
+          const mappedColor = thermalColorForTemperature(temperature, mesh.userData.thermalColor);
+          mesh.material.color.copy(mappedColor);
+          mesh.material.emissive.copy(mappedColor);
+        } else {
+          mesh.material.color.copy(mesh.userData.baseColor);
+          mesh.material.emissive.copy(mesh.userData.baseEmissive);
+        }
+      });
+      if (Number.isInteger(instance.hoveredCellIndex)) setHoverTooltipReading(instance, instance.hoveredCellIndex);
+    });
     setText('avg-pack-temp', average.toFixed(2));
     setText('max-cell-temp', peak.toFixed(2));
     const pumpRpm = Number(frame.fan_rpm ?? frame.pump_rpm);
@@ -294,12 +339,55 @@ window.OrbitControls = OrbitControls;
       const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.setClearColor(0x000000, 0);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(38, 1, .1, 100);
-      camera.position.set(0, 0, 8);
+      camera.position.set(5.7, 5.1, 7.8);
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
+      controls.dampingFactor = .075;
+      controls.minDistance = 4.5;
+      controls.maxDistance = 14;
+      controls.target.set(0, 0, 0);
       controls.update();
+
+      scene.add(new THREE.AmbientLight(0xb9c9d8, 1.45));
+      const keyLight = new THREE.DirectionalLight(0xffffff, 2.6);
+      keyLight.position.set(-4.5, 8, 6);
+      scene.add(keyLight);
+      const fillLight = new THREE.DirectionalLight(0x74d9e8, .9);
+      fillLight.position.set(5, 4, -5);
+      scene.add(fillLight);
+
+      const cellGeometry = new THREE.BoxGeometry(.92, .34, .64);
+      const darkTheme = root.dataset.theme === 'dark';
+      const baseCellColor = darkTheme ? 0x46677c : 0x7891a2;
+      const cells = [];
+      for (let row = 0; row < 4; row += 1) {
+        for (let column = 0; column < 4; column += 1) {
+          const cellIndex = row * 4 + column;
+          const material = new THREE.MeshStandardMaterial({
+            color: baseCellColor,
+            roughness: .36,
+            metalness: .38,
+            emissive: darkTheme ? 0x06202b : 0x14232c,
+            emissiveIntensity: .12,
+          });
+          const cell = new THREE.Mesh(cellGeometry, material);
+          cell.name = `Battery Cell #${String(cellIndex + 1).padStart(2, '0')}`;
+          cell.userData.cellIndex = cellIndex;
+          cell.userData.temperature = NaN;
+          cell.userData.thermalColor = new THREE.Color();
+          cell.userData.baseColor = new THREE.Color(baseCellColor);
+          cell.userData.baseEmissive = new THREE.Color(darkTheme ? 0x06202b : 0x14232c);
+          cell.position.set((column - 1.5) * 1.04, 0, (row - 1.5) * .76);
+          scene.add(cell);
+          cells.push(cell);
+        }
+      }
+      canvas.parentElement.classList.add('has-3d-scene');
       const parent = canvas.parentElement;
       const resize = () => {
         const bounds = parent.getBoundingClientRect();
@@ -312,8 +400,41 @@ window.OrbitControls = OrbitControls;
         resizeSimulationRenderer = resize;
         window.addEventListener('simulation-view-shown', resize);
       }
-      const instance = { renderer, scene, camera, controls, resize };
+      const instance = { renderer, scene, camera, controls, cells, resize, hoveredCellIndex: null, tooltip: null };
       sceneInstances.set(canvasId, instance);
+      if (canvasId === 'simulation-canvas') {
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        const tooltip = byId('cell-hover-tooltip');
+        const tooltipHost = parent.closest('.scene-backdrop');
+        instance.tooltip = tooltip;
+        renderer.domElement.addEventListener('pointermove', (event) => {
+          const bounds = renderer.domElement.getBoundingClientRect();
+          if (!bounds.width || !bounds.height || !tooltip || !tooltipHost) return;
+          pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+          pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
+          raycaster.setFromCamera(pointer, camera);
+          const hit = raycaster.intersectObjects(cells, false)[0];
+          if (!hit) {
+            instance.hoveredCellIndex = null;
+            tooltip.hidden = true;
+            return;
+          }
+          const cellIndex = hit.object.userData.cellIndex;
+          instance.hoveredCellIndex = cellIndex;
+          tooltip.hidden = false;
+          setHoverTooltipReading(instance, cellIndex);
+          const hostBounds = tooltipHost.getBoundingClientRect();
+          const left = Math.min(hostBounds.width - tooltip.offsetWidth - 10, event.clientX - hostBounds.left + 14);
+          const top = Math.min(hostBounds.height - tooltip.offsetHeight - 10, event.clientY - hostBounds.top + 14);
+          tooltip.style.left = `${Math.max(10, left)}px`;
+          tooltip.style.top = `${Math.max(10, top)}px`;
+        });
+        renderer.domElement.addEventListener('pointerleave', () => {
+          instance.hoveredCellIndex = null;
+          if (tooltip) tooltip.hidden = true;
+        });
+      }
       new ResizeObserver(resize).observe(parent);
       resize();
       const render = (now) => {
@@ -467,8 +588,12 @@ window.OrbitControls = OrbitControls;
     initialized: false,
     validateMountTargets,
     router: { initialize: initPageNavigation },
-    scene: { initialize: initScene, resize: () => window.dispatchEvent(new Event('simulation-view-shown')) },
-    shader: { registerMapper, getMapper: () => shaderMapper },
+    scene: {
+      initialize: initScene,
+      getCells: (canvasId = 'simulation-canvas') => sceneInstances.get(canvasId)?.cells || [],
+      resize: () => window.dispatchEvent(new Event('simulation-view-shown')),
+    },
+    shader: { registerMapper, getMapper: () => shaderMapper, mapTemperature: thermalColorForTemperature },
     charts: { initialize: createCharts, refreshTheme: refreshChartTheme },
     hooks: {
       initializeScene: initScene,
